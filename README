@@ -8,4 +8,4 @@ The slave machine has a client running which receives work units from its master
 The master schedules the jobs (input by a user e.g.) and does load-balancing among its slaves. When all the work units are complete for a particular job,
 the master "reduces" them to the required result.
 
-No failure detection and work unit transfer are to be implemented for now.
+No failure detection and work unit transfer are planned yet.
