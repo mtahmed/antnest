@@ -60,6 +60,7 @@ class Heap(object):
         self.items = self.items[1:]
         self.items.insert(0, self.items.pop())
         self.__bubble_down(0)
+        return return_item
 
     def __bubble_up(self, index):
         '''
@@ -68,27 +69,29 @@ class Heap(object):
         key = self.key
         items = self.items
 
-        parent_index = parent(index)
+        parent_index = self.parent(index)
+        if parent_index is None:
+            return
         if self.reverse: # If its a max-heap
             while key(items[index]) > key(items[parent_index]):
-                if parent_index is None:
-                    break
                 # Swap this with parent
                 temp = items[index]
                 items[index] = items[parent_index]
                 items[parent_index] = temp
                 index = parent_index
-                parent_index = parent(index)
+                parent_index = self.parent(index)
+                if parent_index is None:
+                    break
         else: # If its a min heap
             while key(items[index]) < key(items[parent_index]):
-                if parent_index is None:
-                    break
                 # Swap this with parent
                 temp = items[index]
                 items[index] = items[parent_index]
                 items[parent_index] = temp
                 index = parent_index
-                parent_index = parent(index)
+                parent_index = self.parent(index)
+                if parent_index is None:
+                    break
 
     def __bubble_down(self, index):
         '''
