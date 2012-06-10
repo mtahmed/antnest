@@ -9,3 +9,20 @@ The master schedules the jobs (input by a user e.g.) and does load-balancing amo
 the master "reduces" them to the required result.
 
 No failure detection and work unit transfer are planned yet.
+
+--[ Implementation
+Each physical machine in a cluster is a "node".
+All nodes in a cluster share the same configuration:
+  - The slaves need the "master" part of the configuration file.
+  - The master needs the "slave" part of the configuration file.
+
+The node can be run in a number of modes e.g.
+  - Master assign/reduce: This node will function as a master assigning work to
+    its slaves. This master will take care of both splitting of work and
+    assigning it to the slaves and receiving the results back and combining
+    them into the final result.
+  - Master assign: This node will only split/assign work among the slaves.
+  - Master reduce: This node will only receive/reduce results received from
+    the slaves.
+  - Slave only: This node will function as a slave accepting work from the
+    master, completing it, and sending the results back to master.
