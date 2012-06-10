@@ -2,11 +2,11 @@
   "master-reduce": {
     "name": "t520",
     "ip": "192.168.0.18"
-  }
+  },
   "master-assign": {
     "name": "t520",
     "ip": "192.168.0.18"
-  }
+  },
 
   "slaves": [
   {
