@@ -39,8 +39,9 @@ class Slave(object):
         if not ip:
             raise Exception("No ip provided to create an instance of slave.")
         else:
-            self.ip = [int(i) for i in ip.split(".")]
+            split_ip = [int(i) for i in ip.split(".")]
             assert len(self.ip) == 4
+            self.ip = ip
         self.name = name
         self.master_combine = master_combine
         self.master_assign = master_assign

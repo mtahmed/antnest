@@ -1,4 +1,5 @@
 import json
+import socket
 
 import heap
 import slave
@@ -33,6 +34,13 @@ class Node(object):
                 master_combine_name = self.config["master-combine"]["name"]
                 master_assign_ip = self.config["master-assign"]["ip"]
                 master_assign_name = self.config["master-assign"]["name"]
+                this_node_name = socket.gethostname()
+                this_node_ip = None
+                for slave in self.config["slaves"]:
+                    if slave["name"] == this_node_name:
+                        this_node_ip = slave["ip"]
+                assert this_node_ip is not None
+                assert this_node_ip is not ""
             except KeyError as ke:
                 raise Exception("Master configurations missing.")
                 return
@@ -41,7 +49,9 @@ class Node(object):
                                           name = master_assign_name)
             master_combine = master.Master(ip = master_combine_ip,
                                            name = master_combine_name)
-            this_node = slave.Slave(master_combine = master_combine,
+            this_node = slave.Slave(ip = this_node_ip,
+                                    name = this_node_name
+                                    master_combine = master_combine,
                                     master_assign = master_assign)
             this_node.start_work()
 
