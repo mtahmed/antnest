@@ -47,3 +47,70 @@ file is a JSON file with the following mandatory sections:
     dictionaries as its value each of which represent a slave of the master.
   - If the node is a slave node, the slaves value must have its own node as
     one of the slaves.
+
+------[ Serialization
+The serialization scheme took some time to "implement in my head". The reason
+being that I had to look carefully to see if it was possible to use some library
+for python to serialize the objects. In particular, I need to serialize a task
+unit and send it to a slave (from the master node). Now the complication here is
+that the libraries provided by Python (e.g. pickle) can only serialize an
+object to its "representation" and such libraries assume that the receiving end
+will already have an idea of what this object is. In other words, they serialize
+only the information about the metadata of a particular instance of an object.
+For example if there as an object with a method inside it, then it cannot be
+serialized by pickle.
+
+So here's the method I came up with to "truly" serialize all the functionality
+of an object assuming we already know the structure of the object:
+First, I extract the code for the methods that I want to serialize from the
+object like so:
+<code>
+import inspect
+
+import taskunit
+
+# Set the data and the processor.
+tu = taskunit.TaskUnit("hello", lambda s: print(s))
+
+method = tu.processor
+# Get the source of the code as a string
+method_code = inspect.getsource(method)
+</code>
+
+This gives us the source code of the required method.
+Then I get all the other attributes of interest from the object and dump them
+as a dictionary (including the data).
+Then I construct a new dictionary with the following format:
+<code>
+{
+  'processor' : 'def processor(x):\n    print(x * x)',
+  'data': 4,
+  'state': 'DEFINED'
+   ...,
+   ...,
+   ...
+}
+</code>
+
+This dictionary is then dumped as a JSON string and sent to the Slave (maybe
+after compression). The slave then reads the JSON into Python lists/dictionaries
+and extracts the required strings/values from the lists/dictionaries.
+In particular, it extracts the processor's code. After doing so, it
+"reconstructs" the TaskUnit object like so:
+
+<code>
+processor_string = decoded_json['processor']
+data = decoded_json['data']
+state_string = decoded_json['state']
+
+exec(processor_string)
+reconstructed_task_unit = TaskUnit(data_string, processor)
+reconstructed_task_unit.state = state_string
+</code>
+The important part in this code above is the exec(...) call which basically
+executes the code in the processor_string variable and defines the method
+processor in the local scope. Then all we have to do is to create a new TaskUnit
+and provide it with this processor and the data and that's basically it. If
+there are other attributes that we also need to serialize, then we can also send
+those through the JSON string over the network and decode on the Slave's end in
+the same way as above.
