@@ -55,6 +55,7 @@ class TaskUnit:
                     'BAILED',
                     'REFUSED',
                     'COMPLETED']
+
     def __init__(self, data, processor, retries=0):
         '''
         :type data: any "serializable" object/value
