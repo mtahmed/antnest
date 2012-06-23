@@ -1,5 +1,12 @@
+# Standard imports
 import socket
 import select
+import time
+
+# Custom imports
+import messenger
+import taskunit
+
 
 class Slave(object):
     '''
@@ -16,7 +23,12 @@ class Slave(object):
     from the slaves into a final result.
     '''
 
-    def __init__(self, ip="", name="", master_combine=None, master_assign=None):
+    def __init__(self,
+                 config,
+                 ip="",
+                 name="",
+                 master_combine=None,
+                 master_assign=None):
         '''
         :type ip: str
         :param ip: Dot-delimited representation of the ip of the slave.
@@ -48,59 +60,46 @@ class Slave(object):
 
         self.task_q = []
 
-        master_combine_address = master_combine.get_address()
-        self.sender_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        destination = master_combine.get_address()
+        self.sender_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sender_socket.setsockopt(socket.SOL_SOCKET,
                                       socket.SO_REUSEADDR,
                                       1)
-        self.receiver_socket.bind(('0.0.0.0', 43400))
+        self.receiver_socket.bind(('0.0.0.0', 33100))
 
-        master_assign_address = master_assign.get_address()
-        self.receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        source = master_assign.get_address()
+        self.receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.receiver_socket.setsockopt(socket.SOL_SOCKET,
                                         socket.SO_REUSEADDR,
                                         1)
-        self.receiver_socket.bind(('0.0.0.0', 43401))
+        self.receiver_socket.bind(('0.0.0.0', 33101))
 
-    def receiver(self):
+        self.messenger = messenger.Messenger(sender_socket,
+                                             destination,
+                                             receiver_socket
+                                             source)
+
+    def worker(self):
         '''
-        This method polls this slaves receiver_socket to see if we have received
-        any task units to work on.
-        If yes, it puts the task unit on our task_queue and polls the socket
-        again.
-        If no, it goes back to sleep for 1 second.
+        This method keeps running for the life of Slave. It asks for new
+        messages from this Slave's messenger. It then appropriately handles the
+        message. Some of the messages are TaskUnits that need to be run.
+
+        If the message happens to be a TaskUnit, then this method either
+        executes the run() method of the TaskUnit and waits for it to complete.
+        It then sets the status of the TaskUnit appropriately and sends the it
+        back to the master through the messenger.
         '''
-        epoll = select.epoll()
-        epoll.register(self.receiver_socket.fileno(), select.EPOLLIN)
-
-        current_data = ""
-        current_executable = b""
-        currently_receiving = None
-
         while True:
-            poll_responses = epoll.poll(1)
-            for _, event in poll_responses:
-                # We received something on our receiver socket.
-                if event & select.EPOLLIN:
-                    # We receive 1024 bytes of data at a time
-                    # and put it in a temporary "buffer".
-                    # When we receive an END OF MESSAGE message,
-                    # we clear the "buffer" and put it on to the "raw"
-                    # message queue. Another thread picks it up, processes
-                    # it (slightly) and puts it in the task_q.
-                    msg, _ = self.receiver_socket.recvfrom(1024)
-                    decoded_msg = msg.decode("UTF-8")
-                    if decoded_msg == ">>> START OF DATA <<<"
-                        currently_receiving = "data"
-                        continue
-                    elif decoded_msg == ">>> END OF DATA <<<":
-                        currently_receiving = "executable"
-                    elif decoded_msg == ">>> END OF EXECUTABLE <<<":
-                        self.raw_message_q = (current_data, current_executable)
-                        current_data = ""
-                        current_executable = b""
-                        currently_receiving = "none"
-                    elif currently_receiving == "data":
-                        current_data += decoded_msg
-                    elif currently_receiving == "executable":
-                        current_executable += msg
+            new_msg = self.messenger.receive()
+            if new_msg is None:
+                time.sleep(3)
+                continue
+            if isinstance(new_msg, TaskUnit):
+                taskunit = new_msg
+                # TODO Make this run in a new thread instead of directly here.
+                try:
+                    taskunit.run()
+                    self.
+                except Exception:
+                    print("ERROR: Failed to run taskunit:", taskunit.getid())

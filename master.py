@@ -1,3 +1,6 @@
+import taskunit
+
+
 class Master(object):
     '''
     An instance of this class represents a master object who can assign work to
@@ -6,7 +9,11 @@ class Master(object):
     back the "intermediate results" from the slaves.
     '''
 
-    def __init__(self, ip="", name="", slaves=[]):
+    def __init__(self,
+                 config,
+                 ip="",
+                 name="",
+                 slaves=[]):
         if slaves is []:
             self.dummy = True
         self.ip = [int(i) for i in ip.split(".")]

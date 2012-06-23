@@ -32,7 +32,7 @@ A configuration file is needed by *each* node in the cluster. A configuration
 file is a JSON file with the following mandatory sections:
   - The root dictionary must have at least the following keys:
     - master-combine: The master who is going to combine the results from the
-      the slaves. 
+      the slaves.
     - master-assign: The master who is going to assign task units to the slaves.
     - slaves: The list of slaves that are going to be assigned work by
       master-assign. Each slave value dictionary must have the following keys:

@@ -1,5 +1,6 @@
 import math
 
+
 class Heap(object):
     '''
     This class will hold the heap to allow us to query items by some criteria
@@ -11,7 +12,7 @@ class Heap(object):
     def __init__(self, items, key, reverse=False):
         '''
         Initialize a heap of slaves.
-        
+
         :type items: list
         :param items: A list of items to be heapified.
 
@@ -72,7 +73,7 @@ class Heap(object):
         parent_index = self.parent(index)
         if parent_index is None:
             return
-        if self.reverse: # If its a max-heap
+        if self.reverse:  # If its a max-heap
             while key(items[index]) > key(items[parent_index]):
                 # Swap this with parent
                 temp = items[index]
@@ -82,7 +83,7 @@ class Heap(object):
                 parent_index = self.parent(index)
                 if parent_index is None:
                     break
-        else: # If its a min heap
+        else:  # If its a min heap
             while key(items[index]) < key(items[parent_index]):
                 # Swap this with parent
                 temp = items[index]
