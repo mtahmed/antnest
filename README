@@ -27,26 +27,28 @@ The node can be run in a number of modes e.g.
   - Slave only: This node will function as a slave accepting work from the
     master, completing it, and sending the results back to master.
 
-------[ Configuration file
-A configuration file is needed by *each* node in the cluster. A configuration
-file is a JSON file with the following mandatory sections:
-  - The root dictionary must have at least the following keys:
-    - master-combine: The master who is going to combine the results from the
-      the slaves.
-    - master-assign: The master who is going to assign task units to the slaves.
-    - slaves: The list of slaves that are going to be assigned work by
-      master-assign. Each slave value dictionary must have the following keys:
-      - name: The hostname of the slave node.
-      - ip: The ip address (as a dot-delimited string) of the slave node.
-      - performance: The performance of a system on a relative scale.
-    NOTE: master-assign and master-combine can be the same node.
-    Each master-* value dictionary must have the following keys:
-      - name: the hostname of the master node.
-      - ip: the ip address (as a dot-delimited string) of the master node.
-  - If the node is a master-* node, the slaves key must have a list of
-    dictionaries as its value each of which represent a slave of the master.
-  - If the node is a slave node, the slaves value must have its own node as
-    one of the slaves.
+------[ Configuration files
+In the future, we will have a configuration server (or just a specialized
+Master who just configures the Slaves).
+
+For now, we will have two config files on each Node:
+- slave-config.json: The configuration used by the Node if the Node is a Slave
+Node.
+The essential parts of this configuration file are:
+  - The root element is a dictionary with the key 'masters' present.
+  - The value of this key is a list of masters.
+  - Each element in this list is a dictionary with two keys in it: the
+    'master-combine' and the 'master-assign'.
+  - The values for each of these keys are dictionaries with the keys 'ip'
+    and 'name'.
+
+- master-config.json: The configuration used by the Node if the Node is a Master
+Node.
+The essential parts of this configuration file are:
+  - The root element is a dictionary with the key 'slaves' present.
+  - The value of this key is a list of slaves.
+  - Each element in this list is a dictionary with two keys in it: the
+    'ip' and the 'name'.
 
 ------[ Serialization
 The serialization scheme took some time to "implement in my head". The reason

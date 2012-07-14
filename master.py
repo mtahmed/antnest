@@ -1,7 +1,8 @@
+# Custom imports
+import node
 import taskunit
 
-
-class Master(object):
+class Master(node.Node):
     '''
     An instance of this class represents a master object who can assign work to
     its slaves after the job has been split up into work units.
@@ -10,19 +11,9 @@ class Master(object):
     '''
 
     def __init__(self,
-                 config,
-                 ip="",
-                 name="",
-                 slaves=[]):
-        if slaves is []:
-            self.dummy = True
-        self.ip = [int(i) for i in ip.split(".")]
-        assert len(self.ip) == 4
+                 ip=None,
+                 hostname=None):
+        self.ip = ip
         self.name = name
-        self.slaves = slaves
 
-    def get_ip(self):
-        return self.ip
-
-    def get_name(self):
-        return self.name
+        super().__init__()

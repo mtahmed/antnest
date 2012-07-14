@@ -48,13 +48,13 @@ class TaskUnit:
         COMPLETED: The slave processed the task and set the result attribute
             successfully.
     '''
-    VALID_STATES = ['DEFINED',
-                    'PENDING',
-                    'RUNNING',
-                    'FAILED',
-                    'BAILED',
-                    'REFUSED',
-                    'COMPLETED']
+    STATES = ('DEFINED',
+              'PENDING',
+              'RUNNING',
+              'FAILED',
+              'BAILED',
+              'REFUSED',
+              'COMPLETED')
 
     def __init__(self, data, processor, retries=0):
         '''
@@ -94,7 +94,7 @@ class TaskUnit:
         '''
         Set the state of this TaskUnit.
         '''
-        if state not in self.VALID_STATES:
+        if state not in self.STATES:
             raise Exception('Unknown statue: ' + state)
         else:
             self.state = state

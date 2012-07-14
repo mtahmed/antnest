@@ -4,11 +4,12 @@ import select
 import time
 
 # Custom imports
+import node
 import messenger
 import taskunit
 
 
-class Slave(object):
+class Slave(node.Node):
     '''
     This class defines a slave worker (a standalone machine)
     which can accept work units and process and send the results
@@ -25,10 +26,8 @@ class Slave(object):
 
     def __init__(self,
                  config,
-                 ip="",
-                 name="",
-                 master_combine=None,
-                 master_assign=None):
+                 ip=None,
+                 name=None)
         '''
         :type ip: str
         :param ip: Dot-delimited representation of the ip of the slave.
@@ -46,38 +45,23 @@ class Slave(object):
         assign the resulting task units to slaves. This is the master that will
         assign us some work to do.
         '''
-        if master_combine is None or master_assign is None:
-            self.dummy = True
-        if not ip:
-            raise Exception("No ip provided to create an instance of slave.")
-        else:
+        config_path = socket.gethostname() + "-slave-config.json"
+        # __init__ Node
+        super().__init__(config_path=config_path)
+
+        if ip:
             split_ip = [int(i) for i in ip.split(".")]
             assert len(self.ip) == 4
             self.ip = ip
-        self.name = name
-        self.master_combine = master_combine
-        self.master_assign = master_assign
+        if name:
+            self.name = name
+
+        for master in self.config["masters"]:
+            self.messenger.register_destination(master['hostname'],
+                                                master['ip'])
 
         self.task_q = []
-
-        destination = master_combine.get_address()
-        self.sender_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sender_socket.setsockopt(socket.SOL_SOCKET,
-                                      socket.SO_REUSEADDR,
-                                      1)
-        self.receiver_socket.bind(('0.0.0.0', 33100))
-
-        source = master_assign.get_address()
-        self.receiver_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.receiver_socket.setsockopt(socket.SOL_SOCKET,
-                                        socket.SO_REUSEADDR,
-                                        1)
-        self.receiver_socket.bind(('0.0.0.0', 33101))
-
-        self.messenger = messenger.Messenger(sender_socket,
-                                             destination,
-                                             receiver_socket
-                                             source)
+        self.messenger = messenger.Messenger()
 
     def worker(self):
         '''
@@ -93,13 +77,13 @@ class Slave(object):
         while True:
             new_msg = self.messenger.receive()
             if new_msg is None:
-                time.sleep(3)
+                time.sleep(2)
                 continue
             if isinstance(new_msg, TaskUnit):
-                taskunit = new_msg
-                # TODO Make this run in a new thread instead of directly here.
+                task = new_msg
+                # TODO MA Make this run in a new thread instead of directly here.
                 try:
-                    taskunit.run()
-                    self.
+                    task.run()
+                    self.messenger.send_taskunit(task)
                 except Exception:
                     print("ERROR: Failed to run taskunit:", taskunit.getid())

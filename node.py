@@ -1,98 +1,68 @@
 import json
 import socket
 
-import heap
-import slave
-import master
-
+STATES = ('UP',       # This Node is configured but isn't ready to accept
+                      # any messages yet.
+          'IDLE',     # This Node doesn't really have anything to do right
+                      # now. It is ready to accepts tasks though.
+          'WORKING',  # This Node is currently actively working.
+          'DORMANT',  # The Node is temporarily down and will retry to get
+                      # UP.
+          'DEAD',)    # The Node has failed to get UP multiple times.
 class Node(object):
     '''
     An instance of this class represents a machine in our distributed system
     cluster.
     '''
-
-    Modes = ("slave",
-            "full-master",
-            "assign-only-master",
-            "combine-only-master",
-            )
-
-    def __init__(self, mode, config_file):
-        if mode not in self.Modes:
-            raise Exception("Unacceptable mode for a node: " + mode)
-
-        self.mode = mode
-        try:
-            with open(config_file) as config_file_handler:
-                self.config = json.load(config_file_handler)
-        except IOError as e:
-            raise Exception("Failed to load config file " + config_file)
-
-        if self.mode == "slave":
+    def __init__(self, config_path=None, ip=None, hostname=None):
+        if config_path:
             try:
-                master_combine_ip = self.config["master-combine"]["ip"]
-                master_combine_name = self.config["master-combine"]["name"]
-                master_assign_ip = self.config["master-assign"]["ip"]
-                master_assign_name = self.config["master-assign"]["name"]
-                this_node_name = socket.gethostname()
-                this_node_ip = None
-                for slave in self.config["slaves"]:
-                    if slave["name"] == this_node_name:
-                        this_node_ip = slave["ip"]
-                assert this_node_ip is not None
-                assert this_node_ip is not ""
-            except KeyError as ke:
-                raise Exception("Master configurations missing.")
-                return
+                with open(config_path) as config_path_handler:
+                    self.config = json.load(config_path_handler)
+            except IOError as e:
+                raise Exception("Failed to load config file " + config_path)
 
-            master_assign = master.Master(ip = master_assign_ip,
-                                          name = master_assign_name)
-            master_combine = master.Master(ip = master_combine_ip,
-                                           name = master_combine_name)
-            this_node = slave.Slave(ip = this_node_ip,
-                                    name = this_node_name
-                                    master_combine = master_combine,
-                                    master_assign = master_assign)
-            this_node.start_work()
+        self.ip = ip
+        self.hostname = hostname
 
-        elif self.mode == "full-master":
-            slave_configs = self.config["slaves"]
-            slaves = []
-            for slave_config in slave_configs:
-                try:
-                    slaves.append(slave.Slave(slave_config["ip"],
-                                            slave_config["name"]))
-                except KeyError:
-                    raise Exception("Slave configurations incomplete.")
-            else:
-                raise Exception("Slave configurations missing.")
-            this_node = master.Master(slaves = slaves, mode = "full")
-            this_node.start_work()
+        self.status = 'UP'
 
-        elif self.mode == "assign-only-master":
-            slave_configs = self.config["slaves"]
-            slaves = []
-            for slave_config in slave_configs:
-                try:
-                    slaves.append(slave.Slave(slave_config["ip"],
-                                            slave_config["name"]))
-                except KeyError:
-                    raise Exception("Slave configurations incomplete.")
-            else:
-                raise Exception("Slave configurations missing.")
-            this_node = master.Master(slaves = slaves, mode = "assign-only")
-            this_node.start_work()
+    @staticmethod
+    def get_this_hostname():
+        '''
+        Get the hostname of the machine that this distributed system is running
+        on.
+        '''
+        return socket.gethostname()
 
-        elif self.mode == "combine-only-master":
-            slave_configs = self.config["slaves"]
-            slaves = []
-            for slave_config in slave_configs:
-                try:
-                    slaves.append(slave.Slave(slave_config["ip"],
-                                            slave_config["name"]))
-                except KeyError:
-                    raise Exception("Slave configurations incomplete.")
-            else:
-                raise Exception("Slave configurations missing.")
-            this_node = master.Master(slaves = slaves, mode = "combine-only")
-            this_node.start_work()
+    def get_ip(self):
+        '''
+        Get the ip of the Node that this object represents.
+        '''
+        return self.ip
+
+    def get_hostname(self):
+        '''
+        Get te hostname of the Node that this object represents.
+        '''
+        return self.hostname
+
+    def set_state(self, state):
+        '''
+        Always use this method to set the state of a Node. This does some
+        checking to make sure that the state transition is a valid transition.
+        '''
+        if state not in self.STATES:
+            raise Exception('Invalid state transition from ' +
+                            self.state +
+                            ' to ' +
+                            state +
+                            '.')
+        else:
+            self.state = state
+
+    def get_state(self):
+        '''
+        Return the status of this node.
+        '''
+        return self.status
