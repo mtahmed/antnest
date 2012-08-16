@@ -1,6 +1,5 @@
 # Standard imports
 import socket
-import select
 import time
 
 # Custom imports
@@ -25,25 +24,12 @@ class Slave(node.Node):
     '''
 
     def __init__(self,
-                 config,
                  ip=None,
-                 name=None)
+                 name=None):
         '''
-        :type ip: str
         :param ip: Dot-delimited representation of the ip of the slave.
 
-        :type name: str
         :param name: The hostname of the machine. (Note: This is not the FQHN)
-
-        :type master_combine: Master
-        :param master_combine: An instance of a Master who can combine the
-        results from the different slaves into one final result. This is the
-        master we send our completed (processed) results to.
-
-        :type master_assign: str
-        :param ip: An instance of a Master who can combine split up jobs and
-        assign the resulting task units to slaves. This is the master that will
-        assign us some work to do.
         '''
         config_path = socket.gethostname() + "-slave-config.json"
         # __init__ Node
@@ -58,7 +44,7 @@ class Slave(node.Node):
 
         for master in self.config["masters"]:
             self.messenger.register_destination(master['hostname'],
-                                                master['ip'])
+                                                (master['ip'], 33310))
 
         self.task_q = []
         self.messenger = messenger.Messenger()

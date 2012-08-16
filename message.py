@@ -10,8 +10,9 @@ MSG_HEADER_SIZE = 7
 # Types of messages
 MSG_STATUS_NOTIFY = 0
 MSG_TASKUNIT = 1
+MSG_JOB = 2
 
-VALID_MSG_TYPES = [MSG_STATUS_NOTIFY, MSG_TASKUNIT]
+VALID_MSG_TYPES = [MSG_STATUS_NOTIFY, MSG_TASKUNIT, MSG_JOB]
 
 def packed_messages_from_data(msg_id, msg_type, data):
     '''
@@ -64,6 +65,64 @@ def data_from_packed_messages(packed_messages):
         data += unpacked_message.msg_payload
 
     return data
+
+def cat_message_objects(message_objects):
+    '''
+    This function takes a list of Message objects and concatenates (cats) the
+    messages into one Message object.
+    '''
+    message_objects.sort(key=message.frag_id)
+
+    # If the last frag doesn't claim to be the last fragment...
+    if not unpacked_messages[-1].is_last_frag:
+        raise Exception('Malformed fragments. Unable to construct data.')
+    if not unpacked_messages[-1].msg_frag_id == (len(unpacked_messages) - 1):
+        raise Exception('Missing a fragment. Unable to construct data.')
+
+    data = b''
+    for message_object in message_objects:
+        data += unpacked_message.msg_payload
+
+    # Reconstruct one message object representing these fragments.
+    catted_message = unpacked_messages[0]
+    catted_message.msg_payload = data
+    catted_message.msg_frag_id = None
+
+    return catted_message
+
+def message_object_from_packed_message(packed_message):
+    '''
+    This function takes a packed message and extracts all the fields
+    from them and reconstruct the Message object.
+    '''
+    return Message(packed_message)
+
+def message_object_from_packed_messages(packed_messages):
+    '''
+    This function takes a list of packed messages and extracts all the fields
+    from them and reconstructs a Message object.
+    '''
+    unpacked_messages = [Message(packed_message)
+                        for packed_message
+                        in packed_messages]
+    unpacked_messages.sort(key=message.frag_id)
+
+    # If the last frag doesn't claim to be the last fragment...
+    if not unpacked_messages[-1].is_last_frag:
+        raise Exception('Malformed fragments. Unable to construct data.')
+    if not unpacked_messages[-1].msg_frag_id == (len(unpacked_messages) - 1):
+        raise Exception('Missing a fragment. Unable to construct data.')
+
+    data = b''
+    for unpacked_message in unpacked_messages:
+        data += unpacked_message.msg_payload
+
+    # Reconstruct one message object representing these fragments.
+    message_object = unpacked_messages[0]
+    message_object.msg_payload = data
+    message_object.msg_frag_id = None
+
+    return message_object
         
 class Message(object):
     '''

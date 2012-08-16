@@ -1,3 +1,4 @@
+# Standard imports
 import hashlib
 
 
@@ -34,7 +35,8 @@ class TaskUnit:
             queue yet.
         PENDING: The task is received by the Slave and unpacked and put on the
             task queue.
-        RUNNING: The task is picked up from a Slave's task queue and is being processed.
+        RUNNING: The task is picked up from a Slave's task queue and is being
+            processed.
         FAILED: There was an attempt to run the task but it failed. It may or
             may not be picked up by the Slave again at a later time to retry.
         BAILED: The task exceeded the retry limit. It will not be picked up by
@@ -42,7 +44,7 @@ class TaskUnit:
         REFUSED: The Slave refused to do it (who does he think he is?). There
             could be several reasons for this. One of them could be that the
             Slave has already done this task before. If a task is REFUSED, the
-            master should still check if the result is None. In most situations,
+            master should still check if the result is None. In most situations
             the result will be returned by the slave even if the task was
             REFUSED.
         COMPLETED: The slave processed the task and set the result attribute

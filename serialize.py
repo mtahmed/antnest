@@ -1,5 +1,12 @@
+# Standard imports
 import inspect
 import json
+
+# Custom imports
+import taskunit
+import job
+import message
+
 
 class Serializer(object):
     '''
@@ -8,8 +15,10 @@ class Serializer(object):
     serialized.
     '''
     def serialize(self, obj):
-        if isinstance(obj, TaskUnit):
+        if isinstance(obj, taskunit.TaskUnit):
             return self.serialize_taskunit(obj)
+        elif isinstance(obj, job.Job):
+            return self.serialize_job(obj)
         elif (isinstance(obj, str) or
               isinstance(obj, int) or
               isinstance(obj, float) or
@@ -18,16 +27,19 @@ class Serializer(object):
               isinstance(obj, dict)):
             return json.dumps(obj)
 
-    def deserialize(self, obj):
-        if isinstance(obj, TaskUnit):
-            return self.deserialize_taskunit(obj)
-        elif (isinstance(obj, str) or
-              isinstance(obj, int) or
-              isinstance(obj, float) or
-              isinstance(obj, list) or
-              isinstance(obj, tuple) or
-              isinstance(obj, dict)):
-            return json.loads(obj)
+    def deserialize(self, msg):
+        msg_type = msg.msg_type
+        if isinstance(msg, taskunit.TaskUnit):
+            return self.deserialize_taskunit(msg)
+        elif isinstance(msg, job.Job):
+            return self.deserialize_taskunit(msg)
+        elif (isinstance(msg, str) or
+              isinstance(msg, int) or
+              isinstance(msg, float) or
+              isinstance(msg, list) or
+              isinstance(msg, tuple) or
+              isinstance(msg, dict)):
+            return json.loads(msg)
 
     def serialize_taskunit(self, taskunit):
         '''
@@ -35,10 +47,19 @@ class Serializer(object):
         string.
         '''
         processor = taskunit.processor
-        processor_code = inspect.getsource(processor)
-        data = taskunit.data
+        if processor is not None:
+            processor_code = inspect.getsource(processor)
+        else:
+            processor_code = None
+        if taskunit.data is not None:
+            data = taskunit.data
+        else:
+            data = None
         state = taskunit.state
-        result = taskunit.result
+        if taskunit.result is not None:
+            result = taskunit.result
+        else:
+            result = None
         retries = taskunit.retries
 
         serialized_taskunit = {'processor': processor_code,
@@ -63,7 +84,28 @@ class Serializer(object):
         result = taskunit_dict['result']
         retries = taskunit_dict['retries']
 
-        taskunit = TaskUnit(data=data, processor=processor, retries=retries)
-        taskunit.setstate(state)
+        tu = taskunit.TaskUnit(data=data,
+                               processor=processor,
+                               retries=retries)
+        tu.setstate(state)
 
-        return taskunit
+        return tu
+
+    def serialize_job(self, job):
+        '''
+        This method serializes a job and returns the result as a JSON string.
+        '''
+        processor = job.processor
+        splitter = job.splitter.split
+        combiner = job.combiner.combine
+        processor_code = inspect.getsource(processor)
+        splitter_code = inspect.getsource(splitter)
+        combiner_code = inspect.getsource(combiner)
+        input_data = job.input_data
+
+        serialized_taskunit = {'processor': processor_code,
+                               'splitter': splitter_code,
+                               'combiner': combiner_code,
+                               'input_data': input_data}
+
+        return json.dumps(serialized_job)

@@ -6,6 +6,7 @@ import socket
 # Custom imports
 import serialize
 import message
+import job
 
 
 class Messenger(object):
@@ -17,18 +18,19 @@ class Messenger(object):
     The messenger can be given an instance of a TaskUnit to send and it will
     take care of the serialization.
     '''
-    def __init__(self,
-                 port=33100):
+    def __init__(self, port=33310):
+        ''' TODO
+        '''
         self.serializer = serialize.Serializer()
         self.port = port
 
         # Create the sockets.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind('0.0.0.0', 33310)
+        self.sock.bind('0.0.0.0', self.port)
 
         # Dictionaries and lists.
-        self.hostname_to_ip = {}
+        self.hostname_to_address = {}
         # The message ids for each of the remote destinations. The ids are
         # incremented as we go.
         self.msg_ids = {}
@@ -39,11 +41,11 @@ class Messenger(object):
         self.inbound_queue = []
         self.outbound_queue = {}
 
-    def get_ip_from_hostname(self, hostname):
+    def get_address_from_hostname(self, hostname):
         '''
         Return the ip address for the hostname `hostname`.
         '''
-        return self.hostname_to_ip(hostname)
+        return self.hostname_to_address[hostname]
 
     def get_next_msg_id(self, hostname):
         '''
@@ -54,28 +56,52 @@ class Messenger(object):
         self.msg_ids[hostname] += 1
         return msg_id
 
-    def register_destination(self, hostname, ip):
+    def register_destination(self, hostname, address):
         '''
         Store the hostname as key with address as value for this destination
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
-        self.hostname_to_ip[hostname] = ip
+        self.hostname_to_ip[hostname] = address
         self.outbound_queue[hostname] = []
         self.msg_ids[hostname] = 0
 
-    def receive(self):
+    def deserialize_message_payload(self, msg):
+        '''
+        Takes as input a Message object and deserializes the payload of the
+        message and returns it.
+        The return value depends on what kind of object the payload represents.
+        '''
+        return self.serializer.deserialize(msg)
+
+    def receive(self, return_payload=True):
         '''
         This method checks this messenger's inbound_queue and if its not empty, it
         returns the next element from the queue.
+
+        :param return_payload: If True, the message payload is deserialized
+        and returned instead of the message itself.
         '''
         if len(inbound_queue) > 0:
             msg = inbound_queue[0]
-            obj = self.serializer.deserialize(msg)
             self.inbound_queue = self.inbound_queue[1:]
-            return obj
+            if return_payload:
+                return self.deserialize_message_payload(msg)
+            else:
+                return msg
         else:
             return None
+
+    def send_job(self, job, dest_hostname):
+        '''
+        This method can be used to send a taskunit to a remote node.
+        '''
+        msg_id = self.get_next_msg_id(dest_hostname)
+        serialized_job = self.serializer.serialize(job)
+        messages = message.packed_messages_from_data(msg_id,
+                                                     message.MSG_JOB,
+                                                     serialized_job)
+        self.queue_for_sending(messages, dest_hostname)
 
     def send_taskunit(self, taskunit, dest_hostname):
         '''
@@ -104,45 +130,53 @@ class Messenger(object):
         outbound_queue.
         NOTE: This method takes a list of messages and not a single message.
         '''
-        dest_ip = self.get_ip_from_hostname(dest_hostname)
-        self.outbound_queue[dest_ip].extend(messages)
+        try:
+            dest_address = self.get_address_from_hostname(dest_hostname)
+            self.outbound_queue[dest_ip].extend(messages)
+        except KeyError:
+            raise Exception('MESSENGER: Doesn\'t know about the host \'' +
+                            dest_hostname +
+                            '\'. Perhaps you should register this destination.')
 
     def sender(self):
         '''
         This method watches the outbound task_q to see if we have any outbound
         messages and if we do, it picks up the message and sends it to its
         destination.
-        In doing so, it also has to poll the sender_socket to make sure that
-        we can send data.
+        In doing so, it also has to poll the sock to make sure that we can send
+        data.
 
         NOTE: This method goes over the list of destinations in a round-robin
         way and for each of them, it picks up the first outbound message for
         that destination and sends it out.
         '''
         poller = select.epoll()
-        poller.register(self.sender_socket.fileno(),
+        poller.register(self.sock.fileno(),
                         select.EPOLLOUT | select.EPOLLET)  # Edge-triggered.
 
         while True:
             for dest in outbound_queue.keys():
-                if len(self.outbound_queue[dest]) > 0:
-                    outbound_msg = self.outbound_queue[dest][0]
-                    # While the msg is still not sent...
-                    while outbound_msg is not None:
-                        # Poll with timeout of 1.0 seconds.
-                        poll_responses = poller.poll(1.0)
-                        for _, event in poll_responses:
-                            # If we can send...
-                            if event & select.EPOLLOUT:
-                                bytes_sent = sender_socket.sendall(outbound_msg)
-                                self.outbound_queue[dest] = outbound_queue[dest][1:]
-                                outbound_msg = None
-                                break
-                            else:
-                                print("WARNING: Unexpected event on sender socket")
+                if len(self.outbound_queue[dest]) == 0:
+                    continue
+                outbound_msg = self.outbound_queue[dest][0]
+                # While the msg is still not sent...
+                while outbound_msg is not None:
+                    # Poll with timeout of 1.0 seconds.
+                    poll_responses = poller.poll(1.0)
+                    for _, event in poll_responses:
+                        # If we can send...
+                        if event & select.EPOLLOUT:
+                            address = get_address_from_hostname(dest)
+                            bytes_sent = sock.send(outbound_msg,
+                                                    address)
+                            self.outbound_queue[dest] = outbound_queue[dest][1:]
+                            outbound_msg = None
+                            break
                         else:
-                            # Sleep for 3.0 seconds if we didn't get any event.
-                            time.sleep(0.50)
+                            print("Messenger: Unexpected event on sender socket")
+                    else:
+                        # Sleep for 3.0 seconds if we didn't get any event.
+                        time.sleep(0.50)
             else:
                 # Our outbound_queue has no destinations yet.
                 time.sleep(3)  # Sleep for 3 seconds
@@ -156,29 +190,41 @@ class Messenger(object):
         Sleeps for 3 seconds otherwise.
         '''
         poller = select.epoll()
-        poller.register(self.receiver_socket.fileno(),
+        poller.register(self.sock.fileno(),
                         select.EPOLLIN | select.EPOLLET)  # Edge-triggered.
 
-        buff = ""
+        fragments_queue = {}
 
         while True:
             # Poll with timeout of 1.0 seconds.
             poll_responses = poller.poll(1.0)
             for fileno, event in poll_responses:
-                # We received something on our receiver socket.
+                # We received something on our socket.
                 if event & select.EPOLLIN:
-                    # We receive 4096 bytes of data at a time
-                    # and put it in a temporary "buffer".
-                    while True:
-                        msg = self.receiver_socket.recv(4096)
-                        decoded_msg = msg.decode('UTF-8')
-                        if decoded_msg == '':
-                            break
-                        buff += msg
-                    self.inbound_queue.append(buff)
-                    buff = ""
+                    data = self.sock.recv(65535)
+                    decoded_data = data.decode('UTF-8')
+                    # Make a message object out of the data and append it
+                    # to the fragments queue...
+                    msg = message.Message(buff)
+                    try:
+                        fragments_queue[msg.msg_id]
+                    except KeyError:
+                        fragments_queue[msg.msg_id] = []
+                    if not msg.is_last_frag:
+                        fragments_queue[msg.msg_id].append(msg)
+                    elif msg.is_last_frag:
+                        total_frags = msg.msg_frag_id + 1
+                        current_frags = len(fragments_queue[msg.msg_id])
+                        fragments_queue[msg.msg_id].extend([None] * (total_frags - current_frags))
+                        fragments_queue[msg.msg_id][-1] = msg
+                    # If all the frags for this message have already been received...
+                    if None not in fragments_queue[msg.msg_id]:
+                        if fragments_queue[msg.msg_id][-1].is_last_frag:
+                            catted_msg = message.cat_message_objects(fragments_queue[msg.msg_id])
+                            self.inbound_queue.append(catted_msg)
+                            fragments_queue[msg.msg_id] = None
                 else:
-                    print("WARNING: unexpected event on receiver socket.")
+                    print("MESSENGER: unexpected event on receiver socket.")
             else:
                 # Sleep for 3.0 seconds if we didn't get any event this time.
                 time.sleep(3.0)
