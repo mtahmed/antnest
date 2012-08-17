@@ -1,6 +1,7 @@
 # Standard imports
 import socket
 import time
+import os
 
 # Custom imports
 import node
@@ -31,7 +32,8 @@ class Slave(node.Node):
 
         :param name: The hostname of the machine. (Note: This is not the FQHN)
         '''
-        config_path = socket.gethostname() + "-slave-config.json"
+        config_file = socket.gethostname() + "-slave-config.json"
+        config_path = os.path.join('config', config_file)
         # __init__ Node
         super().__init__(config_path=config_path)
 
