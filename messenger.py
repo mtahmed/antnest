@@ -27,7 +27,7 @@ class Messenger(object):
         # Create the sockets.
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.bind('0.0.0.0', self.port)
+        self.sock.bind(('0.0.0.0', self.port))
 
         # Dictionaries and lists.
         self.hostname_to_address = {}
@@ -62,7 +62,7 @@ class Messenger(object):
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
-        self.hostname_to_ip[hostname] = address
+        self.hostname_to_address[hostname] = address
         self.outbound_queue[hostname] = []
         self.msg_ids[hostname] = 0
 
@@ -82,8 +82,8 @@ class Messenger(object):
         :param return_payload: If True, the message payload is deserialized
         and returned instead of the message itself.
         '''
-        if len(inbound_queue) > 0:
-            msg = inbound_queue[0]
+        if len(self.inbound_queue) > 0:
+            msg = self.inbound_queue[0]
             self.inbound_queue = self.inbound_queue[1:]
             if return_payload:
                 return self.deserialize_message_payload(msg)

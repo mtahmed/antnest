@@ -37,6 +37,9 @@ class Slave(node.Node):
         # __init__ Node
         super().__init__(config_path=config_path)
 
+        self.task_q = []
+        self.messenger = messenger.Messenger()
+
         if ip:
             split_ip = [int(i) for i in ip.split(".")]
             assert len(self.ip) == 4
@@ -48,8 +51,6 @@ class Slave(node.Node):
             self.messenger.register_destination(master['hostname'],
                                                 (master['ip'], 33310))
 
-        self.task_q = []
-        self.messenger = messenger.Messenger()
 
     def worker(self):
         '''
