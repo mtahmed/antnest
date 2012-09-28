@@ -26,23 +26,25 @@ def packed_messages_from_data(msg_id, msg_type, data):
     while len(data) > 65500:
         data_frags.append(data[:65501])
         data = data[65501:]
+    else:
+        data_frags.append(data)
 
     if msg_type not in VALID_MSG_TYPES:
         raise Exception('Invalid message type: %d', msg_type)
     packed_messages = []
     for msg_frag_id, data_frag in enumerate(data_frags):
         msg_flags = 0
-        if index == len(data_frags) - 1:
+        if msg_frag_id == len(data_frags) - 1:
             msg_flags = msg_flags | 0x1
         packed = struct.pack(MSG_FORMAT % len(data_frag),
                              msg_id,
                              msg_type,
                              msg_flags,
                              msg_frag_id,
-                             data_frag)
+                             bytes(data_frag, 'UTF-8'))
         packed_messages.append(packed)
 
-    return messages
+    return packed_messages
 
 def data_from_packed_messages(packed_messages):
     '''
@@ -71,20 +73,20 @@ def cat_message_objects(message_objects):
     This function takes a list of Message objects and concatenates (cats) the
     messages into one Message object.
     '''
-    message_objects.sort(key=message.frag_id)
+    message_objects.sort(key=lambda message: message.msg_frag_id)
 
     # If the last frag doesn't claim to be the last fragment...
-    if not unpacked_messages[-1].is_last_frag:
+    if not message_objects[-1].is_last_frag:
         raise Exception('Malformed fragments. Unable to construct data.')
-    if not unpacked_messages[-1].msg_frag_id == (len(unpacked_messages) - 1):
+    if not message_objects[-1].msg_frag_id == (len(message_objects) - 1):
         raise Exception('Missing a fragment. Unable to construct data.')
 
     data = b''
     for message_object in message_objects:
-        data += unpacked_message.msg_payload
+        data += message_object.msg_payload
 
     # Reconstruct one message object representing these fragments.
-    catted_message = unpacked_messages[0]
+    catted_message = message_objects[0]
     catted_message.msg_payload = data
     catted_message.msg_frag_id = None
 
@@ -130,7 +132,7 @@ class Message(object):
     This really is a packet decoder. It just facilitates in decoding
     the packets to read.
     '''
-    def __init__(packed):
+    def __init__(self, packed):
         self.packed = packed
         if len(packed) > MAX_MSG_SIZE:
             raise Exception("Message size shouldn't exceed " +
@@ -150,4 +152,4 @@ class Message(object):
         self.msg_payload = unpacked_tuple[4]
         # Now unpack the flags.
         mask = 0x1
-        self.is_last_frag = self.flags & mask
+        self.is_last_frag = self.msg_flags & mask

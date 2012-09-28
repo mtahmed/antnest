@@ -20,11 +20,25 @@ class Master(node.Node):
         :param hostname: This node's hostname.
         '''
         self.ip = ip
-        self.name = name
+        self.hostname = hostname
 
-        self.jobs = []
+        self.pending_jobs = []
+        self.completed_jobs = []
+        self.taskunits = []
 
         self.messenger = messenger.Messenger()
+
+    def process_job(self, new_job):
+        '''
+        This method takes a job as input and "processes" it in the sense
+        that it generates TaskUnits from the Job and sends them off to the
+        "right" Slaves to be processed.
+        It then collects the results from our taskunits queue and combines
+        them to get the final result.
+        It then writes the results to a file and returns.
+        '''
+        for new_taskunit in new_job.splitter.split:
+            print(new_taskunit)
 
     def worker(self):
         '''
@@ -42,4 +56,5 @@ class Master(node.Node):
                 time.sleep(2)
                 continue
             if isinstance(new_msg, job.Job):
+                print("MASTER: Got a new job.")
                 job = new_msg

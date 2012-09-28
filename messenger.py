@@ -2,11 +2,13 @@
 import time
 import select
 import socket
+import threading
 
 # Custom imports
 import serialize
 import message
 import job
+import utils.logger
 
 
 class Messenger(object):
@@ -40,6 +42,18 @@ class Messenger(object):
         # destination of the message and values are the messages.
         self.inbound_queue = []
         self.outbound_queue = {}
+
+        # Create and start the receiver and sender threads now.
+        receiver_thread = threading.Thread(target=self.receiver,
+                                           name='receiver_thread',
+                                           args=(self,))
+        sender_thread = threading.Thread(target=self.sender,
+                                         name='sender_thread',
+                                         args=(self,))
+        receiver_thread.start()
+        sender_thread.start()
+
+        self.logger = utils.logger.Logger('MESSENGER')
 
     def get_address_from_hostname(self, hostname):
         '''
@@ -98,6 +112,7 @@ class Messenger(object):
         '''
         msg_id = self.get_next_msg_id(dest_hostname)
         serialized_job = self.serializer.serialize(job)
+        print(serialized_job)
         messages = message.packed_messages_from_data(msg_id,
                                                      message.MSG_JOB,
                                                      serialized_job)
@@ -131,14 +146,14 @@ class Messenger(object):
         NOTE: This method takes a list of messages and not a single message.
         '''
         try:
-            dest_address = self.get_address_from_hostname(dest_hostname)
-            self.outbound_queue[dest_ip].extend(messages)
+            self.outbound_queue[dest_hostname].extend(messages)
         except KeyError:
             raise Exception('MESSENGER: Doesn\'t know about the host \'' +
                             dest_hostname +
                             '\'. Perhaps you should register this destination.')
 
-    def sender(self):
+    @staticmethod
+    def sender(messenger):
         '''
         This method watches the outbound task_q to see if we have any outbound
         messages and if we do, it picks up the message and sends it to its
@@ -151,14 +166,16 @@ class Messenger(object):
         that destination and sends it out.
         '''
         poller = select.epoll()
-        poller.register(self.sock.fileno(),
+        poller.register(messenger.sock.fileno(),
                         select.EPOLLOUT | select.EPOLLET)  # Edge-triggered.
 
         while True:
-            for dest in outbound_queue.keys():
-                if len(self.outbound_queue[dest]) == 0:
+            for dest in messenger.outbound_queue.keys():
+                if len(messenger.outbound_queue[dest]) == 0:
+                    messenger.logger.log('No messages for host: %s' % dest)
                     continue
-                outbound_msg = self.outbound_queue[dest][0]
+                messenger.logger.log("MESSENGER: Found a message to send out.")
+                outbound_msg = messenger.outbound_queue[dest][0]
                 # While the msg is still not sent...
                 while outbound_msg is not None:
                     # Poll with timeout of 1.0 seconds.
@@ -166,14 +183,14 @@ class Messenger(object):
                     for _, event in poll_responses:
                         # If we can send...
                         if event & select.EPOLLOUT:
-                            address = get_address_from_hostname(dest)
-                            bytes_sent = sock.send(outbound_msg,
-                                                    address)
-                            self.outbound_queue[dest] = outbound_queue[dest][1:]
+                            address = messenger.get_address_from_hostname(dest)
+                            bytes_sent = messenger.sock.sendto(outbound_msg,
+                                                               address)
+                            messenger.outbound_queue[dest] = messenger.outbound_queue[dest][1:]
                             outbound_msg = None
                             break
                         else:
-                            print("Messenger: Unexpected event on sender socket")
+                            messenger.logger.log("Messenger: Unexpected event on sender socket")
                     else:
                         # Sleep for 3.0 seconds if we didn't get any event.
                         time.sleep(0.50)
@@ -181,7 +198,8 @@ class Messenger(object):
                 # Our outbound_queue has no destinations yet.
                 time.sleep(3)  # Sleep for 3 seconds
 
-    def receiver(self):
+    @staticmethod
+    def receiver(messenger):
         '''
         This method polls the receiver_socket to see if it have received any
         messages.
@@ -190,7 +208,7 @@ class Messenger(object):
         Sleeps for 3 seconds otherwise.
         '''
         poller = select.epoll()
-        poller.register(self.sock.fileno(),
+        poller.register(messenger.sock.fileno(),
                         select.EPOLLIN | select.EPOLLET)  # Edge-triggered.
 
         fragments_queue = {}
@@ -201,11 +219,12 @@ class Messenger(object):
             for fileno, event in poll_responses:
                 # We received something on our socket.
                 if event & select.EPOLLIN:
-                    data = self.sock.recv(65535)
+                    messenger.logger.log("MESSENGER: Received a message!")
+                    data = messenger.sock.recv(65535)
                     decoded_data = data.decode('UTF-8')
                     # Make a message object out of the data and append it
                     # to the fragments queue...
-                    msg = message.Message(buff)
+                    msg = message.Message(data)
                     try:
                         fragments_queue[msg.msg_id]
                     except KeyError:
@@ -221,10 +240,10 @@ class Messenger(object):
                     if None not in fragments_queue[msg.msg_id]:
                         if fragments_queue[msg.msg_id][-1].is_last_frag:
                             catted_msg = message.cat_message_objects(fragments_queue[msg.msg_id])
-                            self.inbound_queue.append(catted_msg)
+                            messenger.inbound_queue.append(catted_msg)
                             fragments_queue[msg.msg_id] = None
                 else:
-                    print("MESSENGER: unexpected event on receiver socket.")
+                    messenger.logger.log("MESSENGER: unexpected event on receiver socket.")
             else:
                 # Sleep for 3.0 seconds if we didn't get any event this time.
                 time.sleep(3.0)

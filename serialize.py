@@ -103,9 +103,9 @@ class Serializer(object):
         combiner_code = inspect.getsource(combiner)
         input_data = job.input_data
 
-        serialized_taskunit = {'processor': processor_code,
-                               'splitter': splitter_code,
-                               'combiner': combiner_code,
-                               'input_data': input_data}
+        serialized_job = {'processor': processor_code,
+                          'splitter': splitter_code,
+                          'combiner': combiner_code,
+                          'input_data': input_data}
 
         return json.dumps(serialized_job)
