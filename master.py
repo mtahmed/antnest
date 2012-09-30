@@ -57,4 +57,4 @@ class Master(node.Node):
                 continue
             if isinstance(new_msg, job.Job):
                 print("MASTER: Got a new job.")
-                job = new_msg
+                job_object = new_msg

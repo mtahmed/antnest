@@ -100,7 +100,8 @@ class Messenger(object):
             msg = self.inbound_queue[0]
             self.inbound_queue = self.inbound_queue[1:]
             if return_payload:
-                return self.deserialize_message_payload(msg)
+                deserialized = self.deserialize_message_payload(msg)
+                return deserialized
             else:
                 return msg
         else:

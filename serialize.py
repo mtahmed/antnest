@@ -29,17 +29,12 @@ class Serializer(object):
 
     def deserialize(self, msg):
         msg_type = msg.msg_type
-        if isinstance(msg, taskunit.TaskUnit):
-            return self.deserialize_taskunit(msg)
-        elif isinstance(msg, job.Job):
-            return self.deserialize_taskunit(msg)
-        elif (isinstance(msg, str) or
-              isinstance(msg, int) or
-              isinstance(msg, float) or
-              isinstance(msg, list) or
-              isinstance(msg, tuple) or
-              isinstance(msg, dict)):
-            return json.loads(msg)
+        if msg_type == message.MSG_STATUS_NOTIFY:
+            pass
+        elif msg_type == message.MSG_TASKUNIT:
+            return self.deserialize_taskunit(msg.msg_payload.decode('UTF-8'))
+        elif msg_type == message.MSG_JOB:
+            return self.deserialize_job(msg.msg_payload.decode('UTF-8'))
 
     def serialize_taskunit(self, taskunit):
         '''
@@ -91,17 +86,17 @@ class Serializer(object):
 
         return tu
 
-    def serialize_job(self, job):
+    def serialize_job(self, job_object):
         '''
         This method serializes a job and returns the result as a JSON string.
         '''
-        processor = job.processor
-        splitter = job.splitter.split
-        combiner = job.combiner.combine
+        processor = job_object.processor
+        splitter = job_object.splitter.split
+        combiner = job_object.combiner.combine
         processor_code = inspect.getsource(processor)
         splitter_code = inspect.getsource(splitter)
         combiner_code = inspect.getsource(combiner)
-        input_data = job.input_data
+        input_data = job_object.input_data
 
         serialized_job = {'processor': processor_code,
                           'splitter': splitter_code,
@@ -109,3 +104,25 @@ class Serializer(object):
                           'input_data': input_data}
 
         return json.dumps(serialized_job)
+
+    def deserialize_job(self, serialized_job):
+        '''
+        This method deserializes the job and returns the result as a Job object.
+        '''
+        job_dict = json.loads(serialized_job)
+
+        processor_code = job_dict['processor']
+        splitter_code = job_dict['splitter']
+        combiner_code = job_dict['combiner']
+        input_data = job_dict['input_data']
+
+        exec(processor_code, globals())
+        exec(splitter_code, globals())
+        exec(combiner_code, globals())
+
+        j = job.Job(processor)
+        j.input_data = input_data
+        j.combiner.set_combine_method(combine)
+        j.splitter.set_split_method(split)
+
+        return j
