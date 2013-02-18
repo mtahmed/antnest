@@ -13,25 +13,21 @@ No failure detection and work unit transfer are planned yet.
 --[ Implementation
 Each physical machine in a cluster is a "node".
 - The slaves need a <hostname>-slave-config.json file.
-- The slaves need a <hostname>-master-config.json file.
 
-The node can be run in a number of modes e.g.
-  - Master assign/reduce: This node will function as a master assigning work to
-    its slaves. This master will take care of both splitting of work and
-    assigning it to the slaves and receiving the results back and combining
-    them into the final result.
-  - Master assign: This node will only split/assign work among the slaves.
-  - Master reduce: This node will only receive/reduce results received from
-    the slaves.
+The node can be run in one of the two modes:
+  - Master: This node will function as a master assigning work to
+    its slaves. The master is given "jobs" by the user and the jobs are
+    split into tasks to be assigned to slaves.
   - Slave only: This node will function as a slave accepting work from the
-    master, completing it, and sending the results back to master.
+    master, completing it, and sending the results back to master (or some other
+    arrangement like storing the results on shared storage).
 
 ------[ Configuration files
 In the future, we will have a configuration server (or just a specialized
 Master who just configures the Slaves).
 
-For now, we will have two config files on each Node:
-- slave-config.json: The configuration used by the Node if the Node is a Slave
+For now, each slave will need it's own config file.
+- <hostname>-slave-config.json: The configuration used by the Node if the Node is a Slave
 Node.
 The essential parts of this configuration file are:
   - The root element is a dictionary with the key 'masters' present.
@@ -41,13 +37,7 @@ The essential parts of this configuration file are:
   - The values for each of these keys are dictionaries with the keys 'ip'
     and 'name'.
 
-- master-config.json: The configuration used by the Node if the Node is a Master
-Node.
-The essential parts of this configuration file are:
-  - The root element is a dictionary with the key 'slaves' present.
-  - The value of this key is a list of slaves.
-  - Each element in this list is a dictionary with two keys in it: the
-    'ip' and the 'name'.
+TODO: The above configuration can also be done using command line arguments.
 
 ------[ Serialization
 The serialization scheme took some time to "implement in my head". The reason
@@ -110,7 +100,7 @@ reconstructed_task_unit.state = state_string
 </code>
 The important part in this code above is the exec(...) call which basically
 executes the code in the processor_string variable and defines the method
-processor in the local scope. Then all we have to do is to create a new TaskUnit
+"processor" in the local scope. Then all we have to do is to create a new TaskUnit
 and provide it with this processor and the data and that's basically it. If
 there are other attributes that we also need to serialize, then we can also send
 those through the JSON string over the network and decode on the Slave's end in
