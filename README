@@ -12,9 +12,8 @@ No failure detection and work unit transfer are planned yet.
 
 --[ Implementation
 Each physical machine in a cluster is a "node".
-All nodes in a cluster share the same configuration:
-  - The slaves need the "master" part of the configuration file.
-  - The master needs the "slave" part of the configuration file.
+- The slaves need a <hostname>-slave-config.json file.
+- The slaves need a <hostname>-master-config.json file.
 
 The node can be run in a number of modes e.g.
   - Master assign/reduce: This node will function as a master assigning work to
