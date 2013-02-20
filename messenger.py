@@ -20,7 +20,9 @@ class Messenger(object):
     The messenger can be given an instance of a TaskUnit to send and it will
     take care of the serialization.
     '''
-    def __init__(self, port=33310):
+    DEFAULT_PORT = 33310
+
+    def __init__(self, port=DEFAULT_PORT):
         ''' TODO
         '''
         self.serializer = serialize.Serializer()
@@ -96,7 +98,7 @@ class Messenger(object):
         :param return_payload: If True, the message payload is deserialized
         and returned instead of the message itself.
         '''
-        if len(self.inbound_queue) > 0:
+        if self.inbound_queue:
             msg = self.inbound_queue[0]
             self.inbound_queue = self.inbound_queue[1:]
             if return_payload:
@@ -202,7 +204,7 @@ class Messenger(object):
     @staticmethod
     def receiver(messenger):
         '''
-        This method polls the receiver_socket to see if it have received any
+        This method polls the receiver_socket to see if it has received any
         messages.
         If yes, it puts the raw message on our inbound_queue and goes back to
         polling the socket.
@@ -221,7 +223,7 @@ class Messenger(object):
                 # We received something on our socket.
                 if event & select.EPOLLIN:
                     messenger.logger.log("MESSENGER: Received a message!")
-                    data = messenger.sock.recv(65535)
+                    data, address = messenger.sock.recvfrom(65535)
                     decoded_data = data.decode('UTF-8')
                     # Make a message object out of the data and append it
                     # to the fragments queue...
@@ -241,6 +243,7 @@ class Messenger(object):
                     if None not in fragments_queue[msg.msg_id]:
                         if fragments_queue[msg.msg_id][-1].is_last_frag:
                             catted_msg = message.cat_message_objects(fragments_queue[msg.msg_id])
+                            catted_msg.recvfrom = address
                             messenger.inbound_queue.append(catted_msg)
                             fragments_queue[msg.msg_id] = None
                 else:

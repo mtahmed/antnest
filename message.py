@@ -144,7 +144,7 @@ class Message(object):
                  msg_flags=None,
                  msg_payload=None):
         if packed_message:
-            self.__init_from_packed_message__(self, packed_message)
+            self.__init_from_packed_message__(packed_message)
         elif msg_payload:
             self.msg_id = msg_id
             self.msg_frag_id = msg_frag_id
