@@ -25,10 +25,10 @@ def packed_messages_from_data(msg_id, msg_type, data):
         if msg_frag_id == len(data_frags) - 1:
             msg_flags = msg_flags | 0x1
         packed = struct.pack(Message.MSG_FORMAT % len(data_frag),
+                             msg_frag_id,
                              msg_id,
                              msg_type,
                              msg_flags,
-                             msg_frag_id,
                              bytes(data_frag, 'UTF-8'))
         packed_messages.append(packed)
 
@@ -63,11 +63,14 @@ def cat_message_objects(message_objects):
     '''
     message_objects.sort(key=lambda message: message.msg_frag_id)
 
+    print(len(message_objects))
+    print(message_objects[-1].msg_frag_id)
+    print(message_objects)
     # If the last frag doesn't claim to be the last fragment...
-    if not message_objects[-1].is_last_frag:
+    if not message_objects[-1].is_last_frag():
         raise Exception('Malformed fragments. Unable to construct data.')
     # FIXME: Crude check to make sure that all the fragments are present.
-    if not message_objects[-1].msg_frag_id == (len(message_objects) - 1):
+    if message_objects[-1].msg_frag_id != (len(message_objects) - 1):
         raise Exception('Missing a fragment. Unable to construct data.')
 
     data = b''
@@ -117,9 +120,7 @@ def message_object_from_packed_messages(packed_messages):
         
 class Message(object):
     '''
-    An instance of this class represents a that can be sent over the network.
-    This really is a packet decoder. It just facilitates in decoding
-    the packets to read.
+    An instance of this class represents a message that can be sent over the network.
     '''
     # Constants
     MSG_HEADER_SIZE = 7
@@ -137,14 +138,14 @@ class Message(object):
                       , MSG_JOB]
 
     def __init__(self,
-                 packed_message=None,
+                 packed_msg=None,
                  msg_id=None,
                  msg_frag_id=None,
                  msg_type=None,
                  msg_flags=None,
                  msg_payload=None):
-        if packed_message:
-            self.__init_from_packed_message__(packed_message)
+        if packed_msg:
+            self.__init_from_packed_msg__(packed_msg)
         elif msg_payload:
             self.msg_id = msg_id
             self.msg_frag_id = msg_frag_id
@@ -152,23 +153,23 @@ class Message(object):
             self.msg_flags = msg_flags
             self.msg_payload = msg_payload
 
-    def __init_from_packed_message__(self, packed_message):
-        self.packed_message = packed_message
-        if len(self.packed_message) > Message.MSG_MAX_SIZE:
+    def __init_from_packed_msg__(self, packed_msg):
+        self.packed_msg = packed_msg
+        if len(self.packed_msg) > Message.MSG_MAX_SIZE:
             raise Exception("Message size shouldn't exceed %d bytes." % (Message.MSG_MAX_SIZE))
         try:
             # Unpack the raw bytes.
-            self.payload_size = len(self.packed_message) - Message.MSG_HEADER_SIZE
-            unpacked_message = struct.unpack(Message.MSG_FORMAT % (self.payload_size),
-                                           packed)
+            self.payload_size = len(self.packed_msg) - Message.MSG_HEADER_SIZE
+            unpacked_msg = struct.unpack(Message.MSG_FORMAT % (self.payload_size),
+                                         self.packed_msg)
         except:
             raise Exception('The raw data is malformed. Unable to '
                             'reconstruct the message.')
-        self.msg_id = unpacked_message[0]
-        self.msg_frag_id = unpacked_message[1]
-        self.msg_type = unpacked_message[2]
-        self.msg_flags = unpacked_message[3]
-        self.msg_payload = unpacked_message[4]
+        self.msg_id = unpacked_msg[0]
+        self.msg_frag_id = unpacked_msg[1]
+        self.msg_type = unpacked_msg[2]
+        self.msg_flags = unpacked_msg[3]
+        self.msg_payload = unpacked_msg[4]
 
     def is_last_frag(self):
         mask = 0x1

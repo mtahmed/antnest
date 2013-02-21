@@ -115,9 +115,8 @@ class Messenger(object):
         '''
         msg_id = self.get_next_msg_id(dest_hostname)
         serialized_job = self.serializer.serialize(job)
-        print(serialized_job)
         messages = message.packed_messages_from_data(msg_id,
-                                                     message.MSG_JOB,
+                                                     message.Message.MSG_JOB,
                                                      serialized_job)
         self.queue_for_sending(messages, dest_hostname)
 
@@ -177,7 +176,7 @@ class Messenger(object):
                 if len(messenger.outbound_queue[dest]) == 0:
                     messenger.logger.log('No messages for host: %s' % dest)
                     continue
-                messenger.logger.log("MESSENGER: Found a message to send out.")
+                messenger.logger.log("Found a message to send out.")
                 outbound_msg = messenger.outbound_queue[dest][0]
                 # While the msg is still not sent...
                 while outbound_msg is not None:
@@ -193,7 +192,7 @@ class Messenger(object):
                             outbound_msg = None
                             break
                         else:
-                            messenger.logger.log("Messenger: Unexpected event on sender socket")
+                            messenger.logger.log("Unexpected event on sender socket")
                     else:
                         # Sleep for 3.0 seconds if we didn't get any event.
                         time.sleep(0.50)
@@ -222,17 +221,17 @@ class Messenger(object):
             for fileno, event in poll_responses:
                 # We received something on our socket.
                 if event & select.EPOLLIN:
-                    messenger.logger.log("MESSENGER: Received a message!")
+                    messenger.logger.log("Received a message!")
                     data, address = messenger.sock.recvfrom(65535)
-                    decoded_data = data.decode('UTF-8')
+                    #decoded_data = data.decode('UTF-8')
                     # Make a message object out of the data and append it
                     # to the fragments queue...
-                    msg = message.Message(data)
+                    msg = message.Message(packed_msg=data)
                     try:
                         fragments_queue[msg.msg_id]
                     except KeyError:
                         fragments_queue[msg.msg_id] = []
-                    if not msg.is_last_frag:
+                    if not msg.is_last_frag():
                         fragments_queue[msg.msg_id].append(msg)
                     elif msg.is_last_frag:
                         total_frags = msg.msg_frag_id + 1
@@ -247,7 +246,7 @@ class Messenger(object):
                             messenger.inbound_queue.append(catted_msg)
                             fragments_queue[msg.msg_id] = None
                 else:
-                    messenger.logger.log("MESSENGER: unexpected event on receiver socket.")
+                    messenger.logger.log("Unexpected event on receiver socket.")
             else:
                 # Sleep for 3.0 seconds if we didn't get any event this time.
                 time.sleep(3.0)

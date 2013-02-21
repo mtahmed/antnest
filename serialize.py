@@ -29,11 +29,11 @@ class Serializer(object):
 
     def deserialize(self, msg):
         msg_type = msg.msg_type
-        if msg_type == message.MSG_STATUS_NOTIFY:
+        if msg_type == message.Message.MSG_STATUS_NOTIFY:
             pass
-        elif msg_type == message.MSG_TASKUNIT:
+        elif msg_type == message.Message.MSG_TASKUNIT:
             return self.deserialize_taskunit(msg.msg_payload.decode('UTF-8'))
-        elif msg_type == message.MSG_JOB:
+        elif msg_type == message.Message.MSG_JOB:
             return self.deserialize_job(msg.msg_payload.decode('UTF-8'))
 
     def serialize_taskunit(self, taskunit):

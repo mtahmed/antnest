@@ -3,6 +3,11 @@ import argparse
 import socket
 import importlib
 import time
+import sys
+import os
+
+# Set environment variable.
+sys.path.append(os.getcwd())
 
 # Custom imports
 import messenger
@@ -12,10 +17,10 @@ def enqueue_job(jobfile):
     # Bind to some other port. Not to the main 33310.
     m = messenger.Messenger(port=33311)
     my_hostname = socket.gethostname()
-    m.register_destination(socket.gethostname(),
+    m.register_destination(my_hostname,
                            ('0.0.0.0', 33310))
     # This file contains at most 3 methods: split, combine, processor and 2
-    # variables: input_data. input_file
+    # variables: input_data, input_file
     jobcode = importlib.import_module('jobs.%s' % jobfile)
     try:
         combiner = Combiner()
@@ -42,6 +47,7 @@ def enqueue_job(jobfile):
     while len(m.outbound_queue[my_hostname]):
         print("Job still not sent out...sleeping.")
         time.sleep(2)
+    return
 
 
 if __name__ == '__main__':

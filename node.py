@@ -32,19 +32,19 @@ class Node(object):
             except IOError as e:
                 raise Exception("Failed to load config file " + config_path)
 
-        # Set my hostname.
-        if self.config['hostname'] is not "":
-            self.hostname = self.config['hostname']
-        else:
-            self.hostname = socket.gethostname()
+            # Set my hostname.
+            if self.config['hostname'] is not "":
+                self.hostname = self.config['hostname']
+            else:
+                self.hostname = socket.gethostname()
 
-        # Set my ip.
-        if ip:
-            self.ip = ip
-        elif self.config['ip'] is not "":
-            self.ip = self.config['ip']
-        else:
-            self.ip = socket.gethostbyname(socket.getfqdn())
+            # Set my ip.
+            if ip:
+                self.ip = ip
+            elif self.config['ip'] is not "":
+                self.ip = self.config['ip']
+            else:
+                self.ip = socket.gethostbyname(socket.getfqdn())
 
         # Set my state as UP.
         self.set_state('UP')

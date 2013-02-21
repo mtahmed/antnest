@@ -1,5 +1,6 @@
 # Standard imports
 import hashlib
+import inspect
 
 
 class TaskUnit:
@@ -79,11 +80,7 @@ class TaskUnit:
 
         self.data = data
         self.result = None
-        self.state = "DEFINED"
-
-        processor_code = inspect.getsource(self.processor)
-        hashinput = processor_code + data
-        self.__sha_256_hex_id = haslib.sha256(hashinput).hexdigest()
+        self.setstate('DEFINED')
 
     def getid(self):
         '''
@@ -106,14 +103,16 @@ class TaskUnit:
         This method is called by the Slave node to "execute" the task unit to
         get the desired results into the task unit.
         '''
+        self.setstate('RUNNING')
         try:
             result = self.processor(self.data)
             self.result = result
+            self.setstate('COMPLETED')
         except Exception as e:
             if self.retries == 0:
-                self.state = "BAILED"
+                self.state = 'BAILED'
             else:
-                self.state = "FAILED"
+                self.state = 'FAILED'
                 self.retries -= 1
 
     def processor(self):

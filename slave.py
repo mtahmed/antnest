@@ -16,8 +16,7 @@ class Slave(node.Node):
     back.
     """
 
-    def __init__(self,
-                 ip=None):
+    def __init__(self, ip=None):
         """
         :param ip: Dot-delimited representation of the ip of the slave.
         """

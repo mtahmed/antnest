@@ -14,13 +14,11 @@ class Master(node.Node):
     It then combines the results into the final expected result when it gets
     back the "intermediate results" from the slaves.
     '''
-    def __init__(self, ip=None, hostname=None):
+    def __init__(self, ip=None):
         '''
         :param ip: The ip of this node.
-        :param hostname: This node's hostname.
         '''
-        self.ip = ip
-        self.hostname = hostname
+        super().__init__(ip=ip)
 
         self.pending_jobs = []
         self.completed_jobs = []
@@ -51,10 +49,18 @@ class Master(node.Node):
         more work etc.
         '''
         while True:
-            new_msg = self.messenger.receive()
-            if new_msg is None:
+            msg = self.messenger.receive(return_payload=False)
+            if msg is None:
                 time.sleep(2)
                 continue
-            if isinstance(new_msg, job.Job):
+            deserialized_msg = self.messenger.deserialize_message_payload(msg)
+            if isinstance(deserialized_msg, job.Job):
                 print("MASTER: Got a new job.")
-                job_object = new_msg
+                job_object = deserialized_msg
+                for tu in job_object.splitter.split(job_object.input_file,
+                                                    job_object.processor):
+                    print("MASTER: Running job...")
+                    tu.run()
+                    print(tu.result)
+                    print(tu.retries)
+                    print(tu.state)

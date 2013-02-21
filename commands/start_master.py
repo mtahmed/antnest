@@ -1,6 +1,11 @@
 # Standard imports
 import argparse
 import socket
+import sys
+import os
+
+# Set environment variable.
+sys.path.append(os.getcwd())
 
 # Custom imports
 import master

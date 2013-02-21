@@ -61,7 +61,7 @@ class Splitter:
         :param split_method: The new method to be used instead of the default
         split method below.
         '''
-        self.split = split_method
+        self.__class__.split = split_method
 
     def split(self, input_file, processor):
         '''
@@ -72,9 +72,6 @@ class Splitter:
         This method can be overwritten if the users of the system decides to
         use their own splitter.
 
-        :param input_file: A relative or absolute path to the file to be used
-        as input for this default split method.
-        
         :param processor: The processor for each "split". Each split is
         basically a taskunit.
         '''
@@ -101,7 +98,7 @@ class Combiner:
         '''
         Set the method to be used to combine the results from taskunits.
         '''
-        self.combine = combine_method
+        self.__class__.combine = combine_method
 
     def combine(self, taskunits):
         '''
