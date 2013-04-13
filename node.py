@@ -89,4 +89,4 @@ class LocalNode(Node):
         except IOError:
             raise Exception("Failed to load config file " + config_path)
 
-        super.__init__(hostname, ip)
+        super().__init__(hostname, ip)
