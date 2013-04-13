@@ -21,8 +21,10 @@ class Slave(node.LocalNode):
                in case we need to specify which interface to use.
         :param ip: Dot-delimited string representation of the ip of this Node.
         """
+        config_filename = '%s-slave-config.json' % socket.gethostname()
+        config_path = os.path.join('config', config_filename)
         # __init__ Node
-        super().__init__()
+        super().__init__(config_path=config_path)
 
         self.task_q = []
         self.messenger = messenger.Messenger()

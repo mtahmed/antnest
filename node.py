@@ -80,13 +80,11 @@ class LocalNode(Node):
         ip = socket.gethostbyname(socket.getfqdn())
         hostname = socket.gethostname()
 
-        if not config_path:
-            config_filename = '%s-slave-config.json' % socket.gethostname()
-            config_path = os.path.join('config', config_filename)
-        try:
-            with open(config_path) as config_path_handler:
-                self.config = json.load(config_path_handler)
-        except IOError:
-            raise Exception("Failed to load config file " + config_path)
+        if config_path:
+            try:
+                with open(config_path) as config_path_handler:
+                    self.config = json.load(config_path_handler)
+            except IOError:
+                raise Exception("Failed to load config file " + config_path)
 
         super().__init__(hostname, ip)
