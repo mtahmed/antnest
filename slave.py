@@ -9,7 +9,7 @@ import messenger
 import taskunit
 
 
-class Slave(node.Node):
+class Slave(node.LocalNode):
     """
     This class defines a slave worker (a standalone machine)
     which can accept work units and process and send the results
@@ -18,12 +18,12 @@ class Slave(node.Node):
 
     def __init__(self, ip=None):
         """
-        :param ip: Dot-delimited representation of the ip of the slave.
+        FIXME: This param is unused for now. Maybe in the future we will need it
+               in case we need to specify which interface to use.
+        :param ip: Dot-delimited string representation of the ip of this Node.
         """
-        config_filename = '%s-slave-config.json' % socket.gethostname()
-        config_path = os.path.join('config', config_filename)
         # __init__ Node
-        super().__init__(config_path=config_path, ip=ip)
+        super().__init__()
 
         self.task_q = []
         self.messenger = messenger.Messenger()

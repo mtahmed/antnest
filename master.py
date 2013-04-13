@@ -7,7 +7,7 @@ import messenger
 import taskunit
 import job
 
-class Master(node.Node):
+class Master(node.LocalNode):
     '''
     An instance of this class represents a master object who can assign work to
     its slaves after the job has been split up into work units.
@@ -16,9 +16,11 @@ class Master(node.Node):
     '''
     def __init__(self, ip=None):
         '''
-        :param ip: The ip of this node.
+        FIXME: This param is unused for now. Maybe in the future we will need it
+               in case we need to specify which interface to use.
+        :param ip: Dot-delimited string representation of the ip of this node.
         '''
-        super().__init__(ip=ip)
+        super().__init__()
 
         self.pending_jobs = []
         self.completed_jobs = []

@@ -5,59 +5,29 @@ class Node(object):
     '''
     An instance of this class represents a machine in our distributed system
     cluster.
-
-    A node can be in one of the following states:
-        UP: This Node is configured but isn't ready to accept any messages yet.
-        READY: This Node is ready to accept messages etc.
-        WORKING: This Node is currently actively working.
-        DORMANT: The Node is temporarily down and will retry to get UP.
-        DEAD: The Node has failed to get UP multiple times.
-
-    Configuration is done in the following decreasing order of preference:
-    - __init__ paramter
-    - config file
-    - socket resolution
     '''
-    STATES = ('UP',
-              'READY',
-              'WORKING',
-              'DORMANT',
-              'DEAD')
+    # A node can be in one of the following states:
+    STATES = ('UP',          # Configured but not ready to accept any messages.
+              'READY',       # Ready to accept messages etc.
+              'WORKING',     # Currently actively working.
+              'DORMANT',     # Temporarily down and will try to get UP.
+              'DEAD'         # Failed to get UP multiple times.
+             )
 
-    def __init__(self, config_path=None, ip=None):
-        if config_path:
-            try:
-                with open(config_path) as config_path_handler:
-                    self.config = json.load(config_path_handler)
-            except IOError as e:
-                raise Exception("Failed to load config file " + config_path)
-
-            # Set my hostname.
-            if self.config['hostname'] is not "":
-                self.hostname = self.config['hostname']
-            else:
-                self.hostname = socket.gethostname()
-
-            # Set my ip.
-            if ip:
-                self.ip = ip
-            elif self.config['ip'] is not "":
-                self.ip = self.config['ip']
-            else:
-                self.ip = socket.gethostbyname(socket.getfqdn())
-
+    def __init__(self, hostname, ip):
+        # Set my hostname.
+        self.hostname = socket.gethostname()
+        # Set my ip.
+        self.ip = ip
         # Set my state as UP.
         self.set_state('UP')
 
-        return
-
-    @staticmethod
     def get_self_hostname():
         '''
         Get the hostname of the machine that this distributed system is running
         on.
         '''
-        return socket.gethostname()
+        return self.hostname
 
     def get_ip(self):
         '''
@@ -86,3 +56,36 @@ class Node(object):
         Return the state of this node.
         '''
         return self.state
+
+
+class RemoteNode(Node):
+    '''
+    This class represents a remote node.
+
+    It is to be used by e.g. a master node to keep track of a its slave nodes.
+    '''
+    def __init__(self, hostname, ip):
+        super().__init__(hostname, ip)
+
+
+class LocalNode(Node):
+    '''
+    This class represents a local node.
+
+    It is to be used on the machine that this class is instantiated to
+    represent itself. A LocalNode must have a config_path defined.
+    '''
+    def __init__(self, config_path=None):
+        ip = socket.gethostbyname(socket.getfqdn())
+        hostname = socket.gethostname()
+
+        if not config_path:
+            config_filename = '%s-slave-config.json' % socket.gethostname()
+            config_path = os.path.join('config', config_filename)
+        try:
+            with open(config_path) as config_path_handler:
+                self.config = json.load(config_path_handler)
+        except IOError:
+            raise Exception("Failed to load config file " + config_path)
+
+        super.__init__(hostname, ip)
