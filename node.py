@@ -1,6 +1,5 @@
 import json
 import socket
-import os
 
 class Node(object):
     '''
