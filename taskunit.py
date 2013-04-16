@@ -24,7 +24,7 @@ class TaskUnit:
       some way to produce the result. E.g. the processor could be a method which
       factorizes a number and produces a list of factors.
     # run: This method calls the processor(see #2) with with the data(see #1).
-      It then returns the result which is then put into the task unit's 
+      It then returns the result which is then put into the task unit's
       result(see #4) attribute.
     # result: Initially the result is empty (when the task unit is created by
       the master. When the slave's processor(see previous) is done its work,
