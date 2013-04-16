@@ -5,6 +5,7 @@ import time
 # Custom imports
 import node
 import messenger
+import message
 import taskunit
 import job
 
@@ -15,6 +16,9 @@ class Master(node.LocalNode):
     It then combines the results into the final expected result when it gets
     back the "intermediate results" from the slaves.
     '''
+    # Various scheduling methods available for use to find workers.
+    SCHED_RR = 0  # Round Robin
+
     def __init__(self, ip=None):
         '''
         FIXME: This param is unused for now. Maybe in the future we will need it
@@ -26,6 +30,9 @@ class Master(node.LocalNode):
         self.pending_jobs = []
         self.completed_jobs = []
         self.taskunits = []
+        self.slave_nodes = []
+
+        self.scheduler = self.SCHED_RR
 
         self.messenger = messenger.Messenger()
 
@@ -40,6 +47,32 @@ class Master(node.LocalNode):
         '''
         for new_taskunit in new_job.splitter.split:
             print(new_taskunit)
+
+    def find_slave_sched_rr(self):
+        '''
+        Find slave using the Round Robin (RR) scheduler.
+        '''
+        try:
+            find_slave_sched_rr.next_slave
+        except:
+            find_slave_sched_rr.next_slave = 0
+        next_slave = find_slave_sched_rr.next_slave
+        find_slave_sched_rr.next_slave += 1
+
+        return next_slave
+
+    def find_slave(self):
+        '''
+        Find a slave using the scheduling method defined during __init__.
+        '''
+        if self.scheduler == SCHED_RR:
+            return find_slave_sched_rr()
+
+    def get_node_address(self, node):
+        '''
+        Get the address for a remote node.
+        '''
+        return (node.ip, self.messenger.port)
 
     def worker(self):
         '''
@@ -57,14 +90,18 @@ class Master(node.LocalNode):
                 time.sleep(2)
                 continue
             deserialized_msg = self.messenger.deserialize_message_payload(msg)
-            print(deserialized_msg)
-            if isinstance(deserialized_msg, job.Job):
+            if msg.msg_type == message.Message.MSG_JOB:
                 print("MASTER: Got a new job.")
                 job_object = deserialized_msg
                 for tu in job_object.splitter.split(job_object.input_file,
                                                     job_object.processor):
-                    print("MASTER: Running job...")
-                    tu.run()
-                    print(tu.result)
-                    print(tu.retries)
-                    print(tu.state)
+                    next_slave = self.find_slave()
+#                    self.messenger.send_taskunit(tu,
+#                                                 
+            if msg.msg_type == message.Message.MSG_STATUS:
+                status = int(deserialized_msg)
+                # If the slave is sending a STATUS_UP, then store it in our
+                # slave_nodes array.
+                print("MASTER: STATUS_UP received from %s:%d" % address)
+                if status == node.Node.STATE_UP:
+                    self.slave_nodes.append(node.RemoteNode(None, address))

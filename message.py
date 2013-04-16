@@ -15,13 +15,13 @@ class Message(object):
     MSG_FORMAT = 'IBBBBB%ds'
 
     # Types of messages
-    MSG_STATUS_NOTIFY = 0
+    MSG_STATUS = 0
     MSG_TASKUNIT = 1
     MSG_JOB = 2
 
-    VALID_MSG_TYPES = [ MSG_STATUS_NOTIFY
-                      , MSG_TASKUNIT
-                      , MSG_JOB]
+    VALID_MSG_TYPES = [MSG_STATUS,
+                       MSG_TASKUNIT,
+                       MSG_JOB]
 
     def __init__(self,
                  packed_msg=None,

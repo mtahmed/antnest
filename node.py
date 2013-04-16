@@ -7,20 +7,25 @@ class Node(object):
     cluster.
     '''
     # A node can be in one of the following states:
-    STATES = ('UP',          # Configured but not ready to accept any messages.
-              'READY',       # Ready to accept messages etc.
-              'WORKING',     # Currently actively working.
-              'DORMANT',     # Temporarily down and will try to get UP.
-              'DEAD'         # Failed to get UP multiple times.
-             )
+    STATE_UP       = 0  # Configured but not ready to accept any messages.
+    STATE_READY    = 1  # Ready to accept messages etc.
+    STATE_WORKING  = 2  # Currently actively working.
+    STATE_DORMANT  = 3  # Temporarily down and will try to get UP.
+    STATE_DEAD     = 4  # Failed to get UP multiple times.
 
-    def __init__(self, hostname, ip):
+    VALID_STATES = [STATE_UP,
+                    STATE_READY,
+                    STATE_WORKING,
+                    STATE_DORMANT,
+                    STATE_DEAD]
+
+    def __init__(self, hostname, address):
         # Set my hostname.
         self.hostname = socket.gethostname()
-        # Set my ip.
-        self.ip = ip
+        # Set my address.
+        self.address = address
         # Set my state as UP.
-        self.set_state('UP')
+        self.set_state(self.STATE_UP)
 
     def get_self_hostname():
         '''
@@ -46,7 +51,7 @@ class Node(object):
         Always use this method to set the state of a Node. This does some
         checking to make sure that the state transition is a valid transition.
         '''
-        if state not in self.STATES:
+        if state not in self.VALID_STATES:
             raise Exception("Invalid state %s" % str(state))
         self.state = state
         return
@@ -64,8 +69,8 @@ class RemoteNode(Node):
 
     It is to be used by e.g. a master node to keep track of a its slave nodes.
     '''
-    def __init__(self, hostname, ip):
-        super().__init__(hostname, ip)
+    def __init__(self, hostname, address):
+        super().__init__(hostname, address)
 
 
 class LocalNode(Node):

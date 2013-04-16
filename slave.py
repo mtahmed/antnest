@@ -30,17 +30,36 @@ class Slave(node.LocalNode):
         self.task_q = []
         self.messenger = messenger.Messenger()
 
-        for master in self.config["masters"]:
+        for master in self.config['masters']:
             if master['ip'] is not "":
-                master_ip = master['ip']
+                self.master_ip = master['ip']
             else:
-                master_ip = socket.gethostbyname(master['hostname'])
+                self.master_ip = socket.gethostbyname(master['hostname'])
             if master['hostname'] is '':
                 raise Exception("The master hostname must always be present.")
-            PORT = messenger.Messenger.DEFAULT_PORT
+            try:
+                port = self.config['port']
+            except KeyError:
+                port = messenger.Messenger.DEFAULT_PORT
             self.messenger.register_destination(master['hostname'],
-                                                (master_ip, PORT))
+                                                (self.master_ip, port))
 
+        # When everything is setup, associate with the master.
+        self.associate()
+
+        return
+
+    def associate(self):
+        '''
+        Associate with the master.
+
+        This involves sending a status update to the master.
+        '''
+        for master in self.config['masters']:
+            self.messenger.send_status(node.Node.STATE_UP,
+                                       master['hostname'])
+            time.sleep(3.0)
+        return
 
     def worker(self):
         """
@@ -54,7 +73,7 @@ class Slave(node.LocalNode):
         back to the master through the messenger.
         """
         while True:
-            msg = self.messenger.receive(return_payload=False)
+            address, msg = self.messenger.receive(return_payload=False)
             if msg is None:
                 time.sleep(2)
                 continue
@@ -70,3 +89,4 @@ class Slave(node.LocalNode):
                         self.messenger.send_taskunit(task, msg.recvfrom)
                 except Exception:
                     print("Failed to run taskunit:", taskunit.getid())
+        return

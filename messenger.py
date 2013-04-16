@@ -77,6 +77,7 @@ class Messenger(object):
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
+        self.logger.log("Register Distination %s:%s" % (hostname, address))
         self.hostname_to_address[hostname] = address
         self.msg_ids[hostname] = 0
 
@@ -125,7 +126,7 @@ class Messenger(object):
         msg_id = self.get_next_msg_id(dest_hostname)
         serialized_taskunit = self.serializer.serialize(taskunit)
         messages = self.packed_messages_from_data(msg_id,
-                                                  message.MSG_TASKUNIT,
+                                                  message.Message.MSG_TASKUNIT,
                                                   serialized_taskunit)
         self.queue_for_sending(messages, dest_hostname)
 
@@ -134,9 +135,10 @@ class Messenger(object):
         This method can be used to send the status to a remote node.
         '''
         msg_id = self.get_next_msg_id(dest_hostname)
+        serialized_status = self.serializer.serialize(status)
         messages = self.packed_messages_from_data(msg_id,
-                                                     message.MSG_STATUS_NOTIFY,
-                                                     status)
+                                                  message.Message.MSG_STATUS,
+                                                  serialized_status)
         self.queue_for_sending(messages, dest_hostname)
 
     def queue_for_sending(self, messages, dest_hostname):
@@ -325,7 +327,6 @@ class Messenger(object):
                         if messenger.is_last_frag(fragments_map[msg.msg_id][-1]):
                             catted_msg = messenger.cat_message_objects(fragments_map[msg.msg_id])
                             messenger.inbound_queue.append((address, catted_msg))
-                            print(messenger.inbound_queue)
                             del fragments_map[msg.msg_id]
                 else:
                     messenger.logger.log("Unexpected event on receiver socket.")

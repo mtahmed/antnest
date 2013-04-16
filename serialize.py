@@ -29,8 +29,8 @@ class Serializer(object):
 
     def deserialize(self, msg):
         msg_type = msg.msg_type
-        if msg_type == message.Message.MSG_STATUS_NOTIFY:
-            pass
+        if msg_type == message.Message.MSG_STATUS:
+            return int(msg.msg_payload.decode('UTF-8'))
         elif msg_type == message.Message.MSG_TASKUNIT:
             return self.deserialize_taskunit(msg.msg_payload.decode('UTF-8'))
         elif msg_type == message.Message.MSG_JOB:
