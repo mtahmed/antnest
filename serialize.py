@@ -36,26 +36,31 @@ class Serializer(object):
         elif msg_type == message.Message.MSG_JOB:
             return self.deserialize_job(msg.msg_payload.decode('UTF-8'))
 
-    def serialize_taskunit(self, taskunit):
+    def serialize_taskunit(self, tu):
         '''
         This method serializes a task unit and returns the result as a JSON
         string.
         '''
-        processor = taskunit.processor
-        if processor is not None:
-            processor_code = inspect.getsource(processor)
+        try:
+            processor_code = tu.processor_code
+        except:
+            processor_code = None
+        if processor_code is not None:
+            processor_code = tu.processor_code
+        elif tu.processor is not None:
+            processor_code = inspect.getsource(tu.processor)
         else:
             processor_code = None
-        if taskunit.data is not None:
-            data = taskunit.data
+        if tu.data is not None:
+            data = tu.data
         else:
             data = None
-        state = taskunit.state
-        if taskunit.result is not None:
-            result = taskunit.result
+        state = tu.state
+        if tu.result is not None:
+            result = tu.result
         else:
             result = None
-        retries = taskunit.retries
+        retries = tu.retries
 
         serialized_taskunit = {'processor': processor_code,
                                'data': data,
@@ -73,7 +78,7 @@ class Serializer(object):
         taskunit_dict = json.loads(serialized_taskunit)
 
         processor_code = taskunit_dict['processor']
-        exec(processor_code)  # This defines the processor method in this scope
+        exec(processor_code, globals())  # This defines the processor method in this scope
         data = taskunit_dict['data']
         state = taskunit_dict['state']
         result = taskunit_dict['result']
@@ -121,6 +126,10 @@ class Serializer(object):
         exec(combiner_code, globals())
 
         j = job.Job(processor)
+        j.processor_code = processor_code
+        j.splitter_code = splitter_code
+        j.combiner_code = combiner_code
+
         j.input_data = input_data
         j.combiner.set_combine_method(combine)
         j.splitter.set_split_method(split)

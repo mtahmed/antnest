@@ -79,6 +79,7 @@ class Messenger(object):
         '''
         self.logger.log("Register Distination %s:%s" % (hostname, address))
         self.hostname_to_address[hostname] = address
+        self.address_to_hostname[address] = hostname
         self.msg_ids[hostname] = 0
 
     def deserialize_message_payload(self, msg):

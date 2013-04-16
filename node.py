@@ -21,7 +21,7 @@ class Node(object):
 
     def __init__(self, hostname, address):
         # Set my hostname.
-        self.hostname = socket.gethostname()
+        self.hostname = hostname
         # Set my address.
         self.address = address
         # Set my state as UP.
@@ -38,7 +38,13 @@ class Node(object):
         '''
         Get the ip of the Node that this object represents.
         '''
-        return self.ip
+        return self.address[0]
+
+    def get_port(self):
+        '''
+        Get the port of the node that this object represents.
+        '''
+        return self.address[1]
 
     def get_hostname(self):
         '''

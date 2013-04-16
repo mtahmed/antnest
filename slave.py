@@ -6,6 +6,7 @@ import os
 # Custom imports
 import node
 import messenger
+import message
 import taskunit
 
 
@@ -28,21 +29,27 @@ class Slave(node.LocalNode):
         super().__init__(config_path=config_path)
 
         self.task_q = []
+        self.master_nodes = []
+
         self.messenger = messenger.Messenger()
 
         for master in self.config['masters']:
-            if master['ip'] is not "":
-                self.master_ip = master['ip']
-            else:
-                self.master_ip = socket.gethostbyname(master['hostname'])
-            if master['hostname'] is '':
-                raise Exception("The master hostname must always be present.")
+            master_hostname = master['hostname']
+
             try:
-                port = self.config['port']
+                master_port = self.config['port']
             except KeyError:
-                port = messenger.Messenger.DEFAULT_PORT
-            self.messenger.register_destination(master['hostname'],
-                                                (self.master_ip, port))
+                master_port = messenger.Messenger.DEFAULT_PORT
+
+            try:
+                master_ip = master['ip']
+            except:
+                master_ip = socket.gethostbyname(master['hostname'])
+
+            self.master_nodes.append(node.RemoteNode(master_hostname,
+                                                     (master_ip, master_port)))
+            self.messenger.register_destination(master_hostname,
+                                                (master_ip, master_port))
 
         # When everything is setup, associate with the master.
         self.associate()
@@ -55,9 +62,9 @@ class Slave(node.LocalNode):
 
         This involves sending a status update to the master.
         '''
-        for master in self.config['masters']:
+        for master in self.master_nodes:
             self.messenger.send_status(node.Node.STATE_UP,
-                                       master['hostname'])
+                                       master.hostname)
             time.sleep(3.0)
         return
 
@@ -78,15 +85,9 @@ class Slave(node.LocalNode):
                 time.sleep(2)
                 continue
             deserialized_msg = self.messenger.deserialize_message_payload(msg)
-            if isinstance(deserialized_msg, TaskUnit):
-                task = deserialized_msg
+            if msg.msg_type == message.Message.MSG_TASKUNIT:
+                tu = deserialized_msg
                 # TODO MA Make this run in a new thread instead of directly here.
-                try:
-                    task.run()
-                    if msg.return_address:
-                        self.messenger.send_taskunit(task, msg.return_address)
-                    else:
-                        self.messenger.send_taskunit(task, msg.recvfrom)
-                except Exception:
-                    print("Failed to run taskunit:", taskunit.getid())
-        return
+                tu.run()
+                hostname = self.messenger.address_to_hostname[address]
+                self.messenger.send_taskunit(tu, hostname)

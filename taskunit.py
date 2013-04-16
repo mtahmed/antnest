@@ -82,13 +82,6 @@ class TaskUnit:
         self.result = None
         self.setstate('DEFINED')
 
-    def getid(self):
-        '''
-        Get the ID of this TaskUnit. The ID of a TaskUnit is defined as:
-        SHA-256(processor_code + data)
-        '''
-        return self.__sha_256_hex_id
-
     def setstate(self, state):
         '''
         Set the state of this TaskUnit.
