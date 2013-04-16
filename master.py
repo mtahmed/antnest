@@ -52,11 +52,12 @@ class Master(node.LocalNode):
         more work etc.
         '''
         while True:
-            msg = self.messenger.receive(return_payload=False)
+            address, msg = self.messenger.receive(return_payload=False)
             if msg is None:
                 time.sleep(2)
                 continue
             deserialized_msg = self.messenger.deserialize_message_payload(msg)
+            print(deserialized_msg)
             if isinstance(deserialized_msg, job.Job):
                 print("MASTER: Got a new job.")
                 job_object = deserialized_msg

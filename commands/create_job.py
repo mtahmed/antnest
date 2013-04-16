@@ -44,7 +44,7 @@ def enqueue_job(jobfile):
         pass
 
     m.send_job(job, my_hostname)
-    while len(m.outbound_queue[my_hostname]):
+    while len(m.outbound_queue):
         print("Job still not sent out...sleeping.")
         time.sleep(2)
     return

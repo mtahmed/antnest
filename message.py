@@ -2,131 +2,17 @@
 import struct
 
 
-def packed_messages_from_data(msg_id, msg_type, data):
-    '''
-    This function takes raw bytes string and the type of message that needs
-    to be constructed and returns a list of Message objects which are fragments
-    of the data. Fragmentation is done to make sure the message can be sent
-    over UDP/IP.
-    '''
-    # Split the data into fragments of size 65500 bytes.
-    data_frags = []
-    while len(data) > 65500:
-        data_frags.append(data[:65501])
-        data = data[65501:]
-    else:
-        data_frags.append(data)
-
-    if msg_type not in Message.VALID_MSG_TYPES:
-        raise Exception('Invalid message type: %d', msg_type)
-    packed_messages = []
-    for msg_frag_id, data_frag in enumerate(data_frags):
-        msg_flags = 0
-        if msg_frag_id == len(data_frags) - 1:
-            msg_flags = msg_flags | 0x1
-        packed = struct.pack(Message.MSG_FORMAT % len(data_frag),
-                             msg_frag_id,
-                             msg_id,
-                             msg_type,
-                             msg_flags,
-                             bytes(data_frag, 'UTF-8'))
-        packed_messages.append(packed)
-
-    return packed_messages
-
-def data_from_packed_messages(packed_messages):
-    '''
-    This function takes a list of packed messages and extracts the payload
-    from them and reconstructs the data from the fragments.
-    '''
-    unpacked_messages = [Message(packed_message)
-                         for packed_message
-                         in packed_messages]
-    unpacked_messages.sort(key=message.frag_id)
-
-    # If the last frag doesn't claim to be the last fragment...
-    if not unpacked_messages[-1].is_last_frag:
-        raise Exception('Malformed fragments. Unable to construct data.')
-    if not unpacked_messages[-1].msg_frag_id == (len(unpacked_messages) - 1):
-        raise Exception('Missing a fragment. Unable to construct data.')
-
-    data = b''
-    for unpacked_message in unpacked_messages:
-        data += unpacked_message.msg_payload
-
-    return data
-
-def cat_message_objects(message_objects):
-    '''
-    This function takes a list of Message objects and concatenates (cats) the
-    messages into one Message object.
-    '''
-    message_objects.sort(key=lambda message: message.msg_frag_id)
-
-    print(len(message_objects))
-    print(message_objects[-1].msg_frag_id)
-    print(message_objects)
-    # If the last frag doesn't claim to be the last fragment...
-    if not message_objects[-1].is_last_frag():
-        raise Exception('Malformed fragments. Unable to construct data.')
-    # FIXME: Crude check to make sure that all the fragments are present.
-    if message_objects[-1].msg_frag_id != (len(message_objects) - 1):
-        raise Exception('Missing a fragment. Unable to construct data.')
-
-    data = b''
-    for message_object in message_objects:
-        data += message_object.msg_payload
-
-    # Reconstruct one message object representing these fragments.
-    catted_message = message_objects[0]
-    catted_message.msg_payload = data
-    catted_message.msg_frag_id = None
-
-    return catted_message
-
-def message_object_from_packed_message(packed_message):
-    '''
-    This function takes a packed message and extracts all the fields
-    from them and reconstruct the Message object.
-    '''
-    return Message(packed_message)
-
-def message_object_from_packed_messages(packed_messages):
-    '''
-    This function takes a list of packed messages and extracts all the fields
-    from them and reconstructs a Message object.
-    '''
-    unpacked_messages = [Message(packed_message)
-                        for packed_message
-                        in packed_messages]
-    unpacked_messages.sort(key=message.frag_id)
-
-    # If the last frag doesn't claim to be the last fragment...
-    if not unpacked_messages[-1].is_last_frag:
-        raise Exception('Malformed fragments. Unable to construct data.')
-    if not unpacked_messages[-1].msg_frag_id == (len(unpacked_messages) - 1):
-        raise Exception('Missing a fragment. Unable to construct data.')
-
-    data = b''
-    for unpacked_message in unpacked_messages:
-        data += unpacked_message.msg_payload
-
-    # Reconstruct one message object representing these fragments.
-    message_object = unpacked_messages[0]
-    message_object.msg_payload = data
-    message_object.msg_frag_id = None
-
-    return message_object
-        
 class Message(object):
     '''
     An instance of this class represents a message that can be sent over the network.
     '''
     # Constants
-    MSG_HEADER_SIZE = 7
-    MSG_DATA_SIZE = 65500
-    MSG_MAX_SIZE = MSG_HEADER_SIZE + MSG_DATA_SIZE
-    MSG_FORMAT = 'IBBB%ds' # <MSG_ID><MSG_FRAG_ID><MSG_TYPE><MSG_FLAGS><PAYLOAD>
+    MSG_HEADER_SIZE = 9
+    MSG_DATA_SIZE = 4096
+    MSG_SIZE = MSG_HEADER_SIZE + MSG_DATA_SIZE
+
+    # <MSG_ID><MSG_META1><MSG_META2><MSG_META3><MSG_TYPE><MSG_FLAGS><PAYLOAD>
+    MSG_FORMAT = 'IBBBBB%ds'
 
     # Types of messages
     MSG_STATUS_NOTIFY = 0
@@ -140,37 +26,52 @@ class Message(object):
     def __init__(self,
                  packed_msg=None,
                  msg_id=None,
-                 msg_frag_id=None,
+                 msg_meta1=None,
+                 msg_meta2=None,
+                 msg_meta3=None,
                  msg_type=None,
                  msg_flags=None,
                  msg_payload=None):
+
         if packed_msg:
-            self.__init_from_packed_msg__(packed_msg)
+            self.packed_msg = packed_msg
+            if len(self.packed_msg) > Message.MSG_SIZE:
+                raise Exception("Message size shouldn't exceed %d bytes." % (Message.MSG_SIZE))
+            try:
+                # Unpack the raw bytes.
+                self.payload_size = len(self.packed_msg) - Message.MSG_HEADER_SIZE
+                unpacked_msg = struct.unpack(Message.MSG_FORMAT % (self.payload_size),
+                                            self.packed_msg)
+            except:
+                raise Exception('The raw data is malformed. Unable to '
+                                'reconstruct the message.')
+            self.msg_id      = unpacked_msg[0]
+            self.msg_meta1   = unpacked_msg[1]
+            self.msg_meta2   = unpacked_msg[2]
+            self.msg_meta3   = unpacked_msg[3]
+            self.msg_type    = unpacked_msg[4]
+            self.msg_flags   = unpacked_msg[5]
+            self.msg_payload = unpacked_msg[6]
         elif msg_payload:
-            self.msg_id = msg_id
-            self.msg_frag_id = msg_frag_id
-            self.msg_type = msg_type
-            self.msg_flags = msg_flags
+            if len(msg_payload) > Message.MSG_DATA_SIZE:
+                raise Exception("Message payload size shouldn't exceed %d "
+                                "bytes." % Message.MSG_DATA_SIZE)
+            self.msg_id      = msg_id
+            self.msg_meta1   = 0xFF if msg_meta1 is None else msg_meta1
+            self.msg_meta2   = 0xFF if msg_meta2 is None else msg_meta2
+            self.msg_meta3   = 0xFF if msg_meta3 is None else msg_meta3
+            self.msg_type    = msg_type
+            self.msg_flags   = msg_flags
             self.msg_payload = msg_payload
-
-    def __init_from_packed_msg__(self, packed_msg):
-        self.packed_msg = packed_msg
-        if len(self.packed_msg) > Message.MSG_MAX_SIZE:
-            raise Exception("Message size shouldn't exceed %d bytes." % (Message.MSG_MAX_SIZE))
-        try:
-            # Unpack the raw bytes.
-            self.payload_size = len(self.packed_msg) - Message.MSG_HEADER_SIZE
-            unpacked_msg = struct.unpack(Message.MSG_FORMAT % (self.payload_size),
-                                         self.packed_msg)
-        except:
-            raise Exception('The raw data is malformed. Unable to '
-                            'reconstruct the message.')
-        self.msg_id = unpacked_msg[0]
-        self.msg_frag_id = unpacked_msg[1]
-        self.msg_type = unpacked_msg[2]
-        self.msg_flags = unpacked_msg[3]
-        self.msg_payload = unpacked_msg[4]
-
-    def is_last_frag(self):
-        mask = 0x1
-        return True if self.msg_flags & mask == 0x1 else False
+            self.payload_size= len(msg_payload)
+            self.packed_msg  = struct.pack(Message.MSG_FORMAT % self.payload_size,
+                                           self.msg_id,
+                                           self.msg_meta1,
+                                           self.msg_meta2,
+                                           self.msg_meta3,
+                                           self.msg_type,
+                                           self.msg_flags,
+                                           bytes(self.msg_payload, 'UTF-8'))
+        else:
+            raise Exception("Either packed_message or msg_payload must be "
+                            "given")
