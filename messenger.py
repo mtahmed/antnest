@@ -62,15 +62,6 @@ class Messenger(object):
         '''
         return self.hostname_to_address[hostname]
 
-    def get_next_msg_id(self, hostname):
-        '''
-        Return the next message id for the hostname `hostname` and increment
-        the message id by 1.
-        '''
-        msg_id = self.msg_ids[hostname]
-        self.msg_ids[hostname] += 1
-        return msg_id
-
     def register_destination(self, hostname, address):
         '''
         Store the hostname as key with address as value for this destination
@@ -113,10 +104,8 @@ class Messenger(object):
         '''
         This method can be used to send a taskunit to a remote node.
         '''
-        msg_id = self.get_next_msg_id(dest_hostname)
         serialized_job = self.serializer.serialize(job)
-        messages = self.packed_messages_from_data(msg_id,
-                                                  message.Message.MSG_JOB,
+        messages = self.packed_messages_from_data(message.Message.MSG_JOB,
                                                   serialized_job)
         self.queue_for_sending(messages, dest_hostname)
 
@@ -124,10 +113,8 @@ class Messenger(object):
         '''
         This method can be used to send a taskunit to a remote node.
         '''
-        msg_id = self.get_next_msg_id(dest_hostname)
         serialized_taskunit = self.serializer.serialize(taskunit)
-        messages = self.packed_messages_from_data(msg_id,
-                                                  message.Message.MSG_TASKUNIT,
+        messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                   serialized_taskunit)
         self.queue_for_sending(messages, dest_hostname)
 
@@ -135,10 +122,8 @@ class Messenger(object):
         '''
         This method can be used to send the status to a remote node.
         '''
-        msg_id = self.get_next_msg_id(dest_hostname)
         serialized_status = self.serializer.serialize(status)
-        messages = self.packed_messages_from_data(msg_id,
-                                                  message.Message.MSG_STATUS,
+        messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
                                                   serialized_status)
         self.queue_for_sending(messages, dest_hostname)
 
@@ -157,7 +142,7 @@ class Messenger(object):
                             ' destination.' % dest_hostname)
 
     ##### Message-specific methods.
-    def packed_messages_from_data(self, msg_id, msg_type, data):
+    def packed_messages_from_data(self, msg_type, msg_payload):
         '''
         This function takes raw bytes string and the type of message that needs
         to be constructed and returns a list of Message objects which are fragments
@@ -167,18 +152,21 @@ class Messenger(object):
         if msg_type not in message.Message.VALID_MSG_TYPES:
             raise Exception('Invalid message type: %d', msg_type)
 
-        # Split the data into fragments of size 65500 bytes.
-        data_frags = []
-        while len(data) > message.Message.MSG_SIZE:
-            data_frags.append(data[:message.Message.MSG_SIZE+1])
-            data = data[message.Message.MSG_SIZE+1:]
+        # Split the msg_payload into fragments of size 65500 bytes.
+        msg_frags = []
+        while len(msg_payload) > message.Message.MSG_PAYLOAD_SIZE:
+            msg_frags.append(msg_payload[:message.Message.MSG_PAYLOAD_SIZE+1])
+            msg_payload = msg_payload[message.Message.MSG_PAYLOAD_SIZE+1:]
         else:
-            data_frags.append(data)
+            msg_frags.append(msg_payload)
+
+        # Compute the message id.
+        msg_id = message.compute_msg_id(bytes(msg_payload, 'UTF-8'))
 
         packed_messages = []
-        for msg_frag_id, data_frag in enumerate(data_frags):
+        for msg_frag_id, msg_frag in enumerate(msg_frags):
             msg_flags = 0
-            if msg_frag_id == len(data_frags) - 1:
+            if msg_frag_id == len(msg_frags) - 1:
                 msg_flags = msg_flags | 0x1
             msg_object = message.Message(packed_msg=None,
                                          msg_id=msg_id,
@@ -187,7 +175,7 @@ class Messenger(object):
                                          msg_meta3=None,
                                          msg_type=msg_type,
                                          msg_flags=msg_flags,
-                                         msg_payload=data_frag)
+                                         msg_payload=msg_frag)
             packed_messages.append(msg_object.packed_msg)
 
         return packed_messages
