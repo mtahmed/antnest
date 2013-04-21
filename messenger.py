@@ -378,7 +378,9 @@ class Messenger(object):
                             if catted_msg.msg_type == message.Message.MSG_ACK:
                                 try:
                                     MSG_ACKED = message.MessageTracker.MSG_ACKED
-                                    messenger.trackers[msg_id].set_state(MSG_ACKED)
+                                    acked_msg_id = catted_msg.msg_payload
+                                    tracker = messenger.trackers[acked_msg_id]
+                                    tracker.set_state(MSG_ACKED)
                                 except KeyError:
                                     pass
                                 continue
