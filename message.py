@@ -10,7 +10,13 @@ def compute_msg_id(msg_payload):
     msg_payload must be a bytes string.
     '''
     m = hashlib.md5()
-    m.update(msg_payload)
+
+    if isinstance(msg_payload, bytes):
+        msg_payload_bytes = msg_payload
+    else:
+        msg_payload_bytes = bytes(msg_payload, 'UTF-8')
+
+    m.update(msg_payload_bytes)
 
     return m.digest()
 

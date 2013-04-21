@@ -203,7 +203,7 @@ class Messenger(object):
             msg_frags.append(msg_payload)
 
         # Compute the message id.
-        msg_id = message.compute_msg_id(bytes(msg_payload, 'UTF-8'))
+        msg_id = message.compute_msg_id(msg_payload)
 
         packed_messages = []
         for msg_frag_id, msg_frag in enumerate(msg_frags):
