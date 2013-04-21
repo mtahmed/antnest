@@ -117,6 +117,6 @@ class Combiner:
         results = [t.result for t in taskunits]
         combined_result = sum(results)  # Just sum the values.
         json_string = json.dumps(combined_result, indent=2)
-        result_file = open('result_' + time.strftime('%Y-%m-%d_%H:%M:%S'), 'r')
+        result_file = open('result_' + time.strftime('%Y-%m-%d_%H:%M:%S'), 'w')
         result_file.write(json_string)
         result_file.close()
