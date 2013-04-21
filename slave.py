@@ -81,7 +81,7 @@ class Slave(node.LocalNode):
                 elif trackers[index].state == message.MessageTracker.MSG_ACKED:
                     unacked_masters[index] = None
                     num_unacked_masters -= 1
-            time.sleep(2.0)
+            time.sleep(4.0)
         return
 
     def worker(self):
