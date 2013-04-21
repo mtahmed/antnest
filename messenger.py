@@ -377,6 +377,7 @@ class Messenger(object):
                                     messenger.trackers[msg_id].set_state(MSG_ACKED)
                                 except KeyError:
                                     pass
+                                continue
                             messenger.inbound_queue.append((address, catted_msg))
                             # Send an ack now that we have received the msg.
                             messenger.send_ack(catted_msg, address)
