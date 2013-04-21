@@ -373,7 +373,8 @@ class Messenger(object):
                             msg_id = catted_msg.msg_id
                             if catted_msg.msg_type == message.Message.MSG_ACK:
                                 try:
-                                    trackers[msg_id].set_state(message.MessageTracker.MSG_ACKED)
+                                    MSG_ACKED = message.MessageTracker.MSG_ACKED
+                                    messenger.trackers[msg_id].set_state(MSG_ACKED)
                                 except KeyError:
                                     pass
                             messenger.inbound_queue.append((address, catted_msg))
