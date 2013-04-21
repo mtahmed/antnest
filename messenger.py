@@ -83,8 +83,8 @@ class Messenger(object):
 
     def receive(self, return_payload=True):
         '''
-        This method checks this messenger's inbound_queue and if its not empty, it
-        returns the next element from the queue.
+        This method checks this messenger's inbound_queue and if its not empty,
+        it returns the next element from the queue.
 
         :param return_payload: If True, the message payload is deserialized
         and returned instead of the message itself.
@@ -100,43 +100,52 @@ class Messenger(object):
         else:
             return (None, None)
 
-    def send_job(self, job, dest_hostname):
+    def send_status(self, status, address):
         '''
-        This method can be used to send a taskunit to a remote node.
-        '''
-        serialized_job = self.serializer.serialize(job)
-        messages = self.packed_messages_from_data(message.Message.MSG_JOB,
-                                                  serialized_job)
-        self.queue_for_sending(messages, dest_hostname)
-
-    def send_taskunit(self, taskunit, dest_hostname):
-        '''
-        This method can be used to send a taskunit to a remote node.
-        '''
-        serialized_taskunit = self.serializer.serialize(taskunit)
-        messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
-                                                  serialized_taskunit)
-        self.queue_for_sending(messages, dest_hostname)
-
-    def send_status(self, status, dest_hostname):
-        '''
-        This method can be used to send the status to a remote node.
+        Send a status update to a remote node.
         '''
         serialized_status = self.serializer.serialize(status)
         messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
                                                   serialized_status)
-        self.queue_for_sending(messages, dest_hostname)
+        self.queue_for_sending(messages, address)
 
-    def queue_for_sending(self, messages, dest_hostname):
+    def send_ack(self, msg, address):
+        '''
+        Send an ack for msg to a remote node.
+        '''
+        msg_id = msg.msg_id
+        messages = self.packed_messages_from_data(message.Message.MSG_ACK,
+                                                  msg_id)
+        self.queue_for_sending(messages, address)
+
+    def send_job(self, job, address):
+        '''
+        Send a job to a remote node.
+        '''
+        serialized_job = self.serializer.serialize(job)
+        messages = self.packed_messages_from_data(message.Message.MSG_JOB,
+                                                  serialized_job)
+        self.queue_for_sending(messages, address)
+
+    def send_taskunit(self, taskunit, address):
+        '''
+        Send a taskunit to a remote node.
+        '''
+        serialized_taskunit = self.serializer.serialize(taskunit)
+        messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
+                                                  serialized_taskunit)
+        self.queue_for_sending(messages, address)
+
+    def queue_for_sending(self, messages, address):
         '''
         This method appends the new messages to the list for the dest in the
         outbound_queue.
         NOTE: This method takes a list of messages and not a single message.
         '''
         try:
-            address = self.hostname_to_address[dest_hostname]
-            for message in messages:
-                self.outbound_queue.append((address, message))
+            self.outbound_queue.extend([(address, message)
+                                        for message
+                                        in messages])
         except KeyError:
             raise Exception('Unknown host: %s. Perhaps you should register this'
                             ' destination.' % dest_hostname)
@@ -315,7 +324,16 @@ class Messenger(object):
                     if None not in fragments_map[msg.msg_id]:
                         if messenger.is_last_frag(fragments_map[msg.msg_id][-1]):
                             catted_msg = messenger.cat_message_objects(fragments_map[msg.msg_id])
+                            # If it is an ack message, then we don't need to put it on the
+                            # inbound_queue.
+                            msg_id = catted_msg.msg_id
+                            if catted_msg.msg_type == message.Message.MSG_ACK:
+                                # TODO: MA We need to find some way of saying
+                                # that the message was acked.
+                                continue
                             messenger.inbound_queue.append((address, catted_msg))
+                            # Send an ack now that we have received the msg.
+                            messenger.send_ack(catted_msg, address)
                             del fragments_map[msg.msg_id]
                 else:
                     messenger.logger.log("Unexpected event on receiver socket.")

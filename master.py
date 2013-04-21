@@ -110,5 +110,4 @@ class Master(node.LocalNode):
                     next_slave = self.find_slave()
                     next_slave_address = self.slave_nodes[next_slave].address
                     tu.processor_code = job_object.processor_code
-                    self.messenger.send_taskunit(tu,
-                                                 'slave1')
+                    self.messenger.send_taskunit(tu, next_slave_address)

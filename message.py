@@ -29,10 +29,12 @@ class Message(object):
 
     # Types of messages
     MSG_STATUS = 0
-    MSG_TASKUNIT = 1
-    MSG_JOB = 2
+    MSG_ACK = 1
+    MSG_TASKUNIT = 2
+    MSG_JOB = 3
 
     VALID_MSG_TYPES = [MSG_STATUS,
+                       MSG_ACK,
                        MSG_TASKUNIT,
                        MSG_JOB]
 
@@ -71,7 +73,12 @@ class Message(object):
             if len(msg_payload) > Message.MSG_PAYLOAD_SIZE:
                 raise Exception("Message payload size shouldn't exceed %d "
                                 "bytes." % Message.MSG_PAYLOAD_SIZE)
-            self.msg_payload = msg_payload
+
+            if isinstance(msg_payload, bytes):
+                self.msg_payload = msg_payload
+            else:
+                self.msg_payload = bytes(msg_payload, 'UTF-8')
+
             if msg_id:
                 self.msg_id  = msg_id
             else:
@@ -90,7 +97,7 @@ class Message(object):
                                            self.msg_meta3,
                                            self.msg_type,
                                            self.msg_flags,
-                                           bytes(self.msg_payload, 'UTF-8'))
+                                           self.msg_payload)
         else:
             raise Exception("Either packed_message or msg_payload must be "
                             "given")

@@ -64,8 +64,8 @@ class Slave(node.LocalNode):
         '''
         for master in self.master_nodes:
             self.messenger.send_status(node.Node.STATE_UP,
-                                       master.hostname)
-            time.sleep(3.0)
+                                       master.address)
+        time.sleep(2.0)
         return
 
     def worker(self):
@@ -89,5 +89,4 @@ class Slave(node.LocalNode):
                 tu = deserialized_msg
                 # TODO MA Make this run in a new thread instead of directly here.
                 tu.run()
-                hostname = self.messenger.address_to_hostname[address]
-                self.messenger.send_taskunit(tu, hostname)
+                self.messenger.send_taskunit(tu, address)
