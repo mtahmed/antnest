@@ -311,7 +311,7 @@ class Messenger(object):
                         # mark it as sent if this is the last frag for the msg
                         # being sent out.
                         try:
-                            msg_object = self.message.Message(packed_msg=msg)
+                            msg_object = message.Message(packed_msg=msg)
                             if messenger.is_last_frag(msg):
                                 tracker = messenger.trackers[msg_object.msg_id]
                                 tracker.set_state(message.MessageTracker.MSG_SENT)
