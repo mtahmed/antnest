@@ -3,7 +3,7 @@ import struct
 import hashlib
 
 
-def compute_msg_id(msg_payload):
+def compute_msg_id(msg_payload, msg_type, dest_address):
     '''
     Compute the message id which is a 16-byte md5 hash of the msg_payload.
 
@@ -16,7 +16,12 @@ def compute_msg_id(msg_payload):
     else:
         msg_payload_bytes = bytes(msg_payload, 'UTF-8')
 
-    m.update(msg_payload_bytes)
+    hashable = (bytes(str(msg_type), 'UTF-8') +
+                bytes(dest_address[1], 'UTF-8') +
+                bytes(str(dest_address[1]), 'UTF-8') +
+                msg_payload)
+
+    m.update(hashable)
 
     return m.digest()
 
@@ -120,10 +125,6 @@ class Message(object):
             else:
                 self.msg_payload = bytes(msg_payload, 'UTF-8')
 
-            if msg_id:
-                self.msg_id  = msg_id
-            else:
-                self.msg_id  = compute_msg_id(self.msg_payload)
             self.msg_id      = msg_id
             self.msg_meta1   = 0xFF if msg_meta1 is None else msg_meta1
             self.msg_meta2   = 0xFF if msg_meta2 is None else msg_meta2

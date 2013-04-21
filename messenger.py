@@ -108,7 +108,8 @@ class Messenger(object):
         '''
         serialized_status = self.serializer.serialize(status)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
-                                                          serialized_status)
+                                                          serialized_status,
+                                                          address)
         self.queue_for_sending(messages, address)
         if track:
             tracker = message.MessageTracker()
@@ -124,7 +125,8 @@ class Messenger(object):
         '''
         msg_id = msg.msg_id
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_ACK,
-                                                          msg_id)
+                                                          msg_id,
+                                                          address)
         self.queue_for_sending(messages, address)
         if track:
             tracker = message.MessageTracker()
@@ -140,7 +142,8 @@ class Messenger(object):
         '''
         serialized_job = self.serializer.serialize(job)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
-                                                  serialized_job)
+                                                          serialized_job,
+                                                          address)
         self.queue_for_sending(messages, address)
         if track:
             tracker = message.MessageTracker()
@@ -156,7 +159,8 @@ class Messenger(object):
         '''
         serialized_taskunit = self.serializer.serialize(taskunit)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
-                                                          serialized_taskunit)
+                                                          serialized_taskunit,
+                                                          address)
         self.queue_for_sending(messages, address)
         if track:
             tracker = message.MessageTracker()
@@ -171,8 +175,8 @@ class Messenger(object):
         '''
         try:
             self.outbound_queue.extend([(address, message)
-                                        for message
-                                        in messages])
+                                       for message
+                                       in messages])
         except KeyError:
             raise Exception('Unknown host: %s. Perhaps you should register this'
                             ' destination.' % dest_hostname)
@@ -184,7 +188,7 @@ class Messenger(object):
         '''
         del self.trackers[msg_id]
 
-    def packed_messages_from_data(self, msg_type, msg_payload):
+    def packed_messages_from_data(self, msg_type, msg_payload, address):
         '''
         This function takes raw bytes string and the type of message that needs
         to be constructed and returns a list of Message objects which are fragments
@@ -203,7 +207,7 @@ class Messenger(object):
             msg_frags.append(msg_payload)
 
         # Compute the message id.
-        msg_id = message.compute_msg_id(msg_payload)
+        msg_id = message.compute_msg_id(msg_payload, msg_type, address)
 
         packed_messages = []
         for msg_frag_id, msg_frag in enumerate(msg_frags):
