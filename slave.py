@@ -75,7 +75,10 @@ class Slave(node.LocalNode):
                                                         track=True)
                     trackers[index] = tracker
                     continue
-                if trackers[index].state == message.MessageTracker.MSG_ACKED:
+                elif trackers[index].state != message.MessageTracker.MSG_ACKED:
+                    self.messenger.send_status(node.Node.STATE_UP,
+                                               master.address)
+                elif trackers[index].state == message.MessageTracker.MSG_ACKED:
                     unacked_masters[index] = None
                     num_unacked_masters -= 1
             time.sleep(2.0)
