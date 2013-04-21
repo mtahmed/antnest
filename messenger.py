@@ -312,7 +312,7 @@ class Messenger(object):
                         # being sent out.
                         try:
                             msg_object = message.Message(packed_msg=msg)
-                            if messenger.is_last_frag(msg):
+                            if messenger.is_last_frag(msg_object):
                                 tracker = messenger.trackers[msg_object.msg_id]
                                 tracker.set_state(message.MessageTracker.MSG_SENT)
                         except KeyError:
