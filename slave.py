@@ -64,7 +64,7 @@ class Slave(node.LocalNode):
         '''
         unacked_masters = self.master_nodes
         num_unacked_masters = len(unacked_masters)
-        trackers = [None] * len(unpacked_masters)
+        trackers = [None] * len(unacked_masters)
         for index, master in enumerate(unacked_masters):
             if num_unacked_masters == 0:
                 break
