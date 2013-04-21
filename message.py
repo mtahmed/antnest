@@ -19,7 +19,7 @@ def compute_msg_id(msg_payload, msg_type, dest_address):
     hashable = (bytes(str(msg_type), 'UTF-8') +
                 bytes(dest_address[1], 'UTF-8') +
                 bytes(str(dest_address[1]), 'UTF-8') +
-                msg_payload)
+                msg_payload_bytes)
 
     m.update(hashable)
 
