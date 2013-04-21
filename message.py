@@ -15,6 +15,41 @@ def compute_msg_id(msg_payload):
     return m.digest()
 
 
+class MessageTracker(object):
+    '''
+    This class is used to track if a message has been sent out.
+    '''
+    MSG_QUEUED = 0
+    MSG_SENT   = 1
+    MSG_ACKED  = 2
+
+    VALID_STATES = [MSG_QUEUED,
+                    MSG_SENT,
+                    MSG_ACKED]
+
+    def __init__(self):
+        self.state = MessageTracker.MSG_QUEUED
+
+    def set_state(self, state):
+        if not state in MessageTracker.VALID_STATES:
+            raise Exception("Unknown tracker state: %d" % state)
+        self.state = state
+
+    def get_state(self):
+        return self.state
+
+    def is_sent(self):
+        return self.state == MessageTracker.MSG_SENT
+
+    def is_acked(self):
+        return self.state == MessageTracker.MSG_ACKED
+
+
+
+def get_msg_id(self, packed_msg):
+    return Message(packed_msg=packed_msg).msg_id
+
+
 class Message(object):
     '''
     An instance of this class represents a message that can be sent over the network.

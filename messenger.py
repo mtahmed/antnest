@@ -35,13 +35,13 @@ class Messenger(object):
         # Hostname <--> address maps.
         self.hostname_to_address = {}
         self.address_to_hostname = {}
-        # The message ids for each of the remote destinations. The ids are
-        # incremented as we go.
-        self.msg_ids = {}
         # Both inbound_queue and outbound_queue contain tuples of
         # (address, message) that are received or need to be sent out.
         self.inbound_queue = []
         self.outbound_queue = []
+        # This dict is used to keep track of MessageTracker objects which can
+        # be used to track message status.
+        self.trackers = {}
 
         # Create and start the receiver and sender threads now.
         receiver_thread = threading.Thread(target=self.receiver,
@@ -100,41 +100,69 @@ class Messenger(object):
         else:
             return (None, None)
 
-    def send_status(self, status, address):
+    def send_status(self, status, address, track=False):
         '''
         Send a status update to a remote node.
+
+        If track is True, then this method returns a MessageTracker object
+        which can be used to check the state of the message sending.
         '''
         serialized_status = self.serializer.serialize(status)
-        messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
-                                                  serialized_status)
+        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
+                                                          serialized_status)
         self.queue_for_sending(messages, address)
+        if track:
+            tracker = message.MessageTracker()
+            self.trackers[msg_id] = tracker
+            return tracker
 
-    def send_ack(self, msg, address):
+    def send_ack(self, msg, address, track=False):
         '''
         Send an ack for msg to a remote node.
+
+        If track is True, then this method returns a MessageTracker object
+        which can be used to check the state of the message sending.
         '''
         msg_id = msg.msg_id
-        messages = self.packed_messages_from_data(message.Message.MSG_ACK,
-                                                  msg_id)
+        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_ACK,
+                                                          msg_id)
         self.queue_for_sending(messages, address)
+        if track:
+            tracker = message.MessageTracker()
+            self.trackers[msg_id] = tracker
+            return tracker
 
-    def send_job(self, job, address):
+    def send_job(self, job, address, track=False):
         '''
         Send a job to a remote node.
+
+        If track is True, then this method returns a MessageTracker object
+        which can be used to check the state of the message sending.
         '''
         serialized_job = self.serializer.serialize(job)
-        messages = self.packed_messages_from_data(message.Message.MSG_JOB,
+        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
                                                   serialized_job)
         self.queue_for_sending(messages, address)
+        if track:
+            tracker = message.MessageTracker()
+            self.trackers[msg_id] = tracker
+            return tracker
 
-    def send_taskunit(self, taskunit, address):
+    def send_taskunit(self, taskunit, address, track=False):
         '''
         Send a taskunit to a remote node.
+
+        If track is True, then this method returns a MessageTracker object
+        which can be used to check the state of the message sending.
         '''
         serialized_taskunit = self.serializer.serialize(taskunit)
-        messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
-                                                  serialized_taskunit)
+        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
+                                                          serialized_taskunit)
         self.queue_for_sending(messages, address)
+        if track:
+            tracker = message.MessageTracker()
+            self.trackers[msg_id] = tracker
+            return tracker
 
     def queue_for_sending(self, messages, address):
         '''
@@ -151,12 +179,18 @@ class Messenger(object):
                             ' destination.' % dest_hostname)
 
     ##### Message-specific methods.
+    def delete_tracker(self, msg_id):
+        '''
+        The tracker for msg_id is no longer needed. Delete it.
+        '''
+        del self.trackers[msg_id]
+
     def packed_messages_from_data(self, msg_type, msg_payload):
         '''
         This function takes raw bytes string and the type of message that needs
         to be constructed and returns a list of Message objects which are fragments
         of the data. Fragmentation is done to make sure the message can be sent
-        over UDP/IP.
+        over UDP.
         '''
         if msg_type not in message.Message.VALID_MSG_TYPES:
             raise Exception('Invalid message type: %d', msg_type)
@@ -187,7 +221,7 @@ class Messenger(object):
                                          msg_payload=msg_frag)
             packed_messages.append(msg_object.packed_msg)
 
-        return packed_messages
+        return (msg_id, packed_messages)
 
     def data_from_packed_messages(self, packed_messages):
         '''
@@ -274,6 +308,17 @@ class Messenger(object):
                         bytes_sent = messenger.socket.sendto(msg,
                                                              address)
                         messenger.outbound_queue = messenger.outbound_queue[1:]
+                        # If we have a tracker for this msg, then we need to
+                        # mark it as sent if this is the last frag for the msg
+                        # being sent out.
+                        try:
+                            msg_object = self.message.Message(packed_msg=msg)
+                            if messenger.is_last_frag(msg):
+                                tracker = messenger.trackers[msg_object.msg_id]
+                                tracker.set_state(message.MessageTracker.MSG_SENT)
+                        except KeyError:
+                            pass
+
                         msg = None
                         break
                     else:
@@ -328,9 +373,10 @@ class Messenger(object):
                             # inbound_queue.
                             msg_id = catted_msg.msg_id
                             if catted_msg.msg_type == message.Message.MSG_ACK:
-                                # TODO: MA We need to find some way of saying
-                                # that the message was acked.
-                                continue
+                                try:
+                                    trackers[msg_id].set_state(message.MessageTracker.MSG_ACKED)
+                                except KeyError:
+                                    pass
                             messenger.inbound_queue.append((address, catted_msg))
                             # Send an ack now that we have received the msg.
                             messenger.send_ack(catted_msg, address)
