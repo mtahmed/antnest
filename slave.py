@@ -62,10 +62,23 @@ class Slave(node.LocalNode):
 
         This involves sending a status update to the master.
         '''
-        for master in self.master_nodes:
-            self.messenger.send_status(node.Node.STATE_UP,
-                                       master.address)
-        time.sleep(2.0)
+        unacked_masters = self.master_nodes
+        num_unacked_masters = len(unacked_masters)
+        trackers = [None] * len(unpacked_masters)
+        for index, master in enumerate(unacked_masters):
+            if num_unacked_masters == 0:
+                break
+            if master == None:
+                continue
+            if trackers[index].state == message.MessageTracker.MSG_ACKED:
+                unacked_masters[index] = None
+                num_unacked_masters -= 1
+                continue
+            tracker = self.messenger.send_status(node.Node.STATE_UP,
+                                                 master.address,
+                                                 track=True)
+            trackers[index] = tracker
+            time.sleep(2.0)
         return
 
     def worker(self):
