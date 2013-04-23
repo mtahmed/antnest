@@ -107,7 +107,10 @@ class Master(node.LocalNode):
                 job_object = deserialized_msg
                 for tu in job_object.splitter.split(job_object.input_file,
                                                     job_object.processor):
+                    tu.processor_code = job_object.processor_code
                     next_slave = self.find_slave()
                     next_slave_address = self.slave_nodes[next_slave].address
-                    tu.processor_code = job_object.processor_code
+                    print(next_slave_address)
+                    tu.taskunit_id = taskunit.compute_taskunit_id(tu.data,
+                                                                  tu.processor_code)
                     self.messenger.send_taskunit(tu, next_slave_address)
