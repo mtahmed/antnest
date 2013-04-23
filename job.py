@@ -79,7 +79,7 @@ class Splitter:
         input_data = f.read()
         input_lines = input_data.split('\n')
         for input_line in input_lines:
-            t = taskunit.TaskUnit(input_line, processor)
+            t = taskunit.TaskUnit(data=input_line, processor=processor)
             yield t
 
 
