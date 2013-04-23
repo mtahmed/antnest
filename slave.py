@@ -105,4 +105,4 @@ class Slave(node.LocalNode):
                 tu = deserialized_msg
                 # TODO MA Make this run in a new thread instead of directly here.
                 tu.run()
-                self.messenger.send_taskunit(tu, address)
+                self.messenger.send_taskunit_result(tu, address)

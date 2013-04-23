@@ -6,8 +6,6 @@ import hashlib
 def compute_msg_id(msg_payload, msg_type, dest_address):
     '''
     Compute the message id which is a 16-byte md5 hash of the msg_payload.
-
-    msg_payload must be a bytes string.
     '''
     m = hashlib.md5()
 
@@ -20,7 +18,6 @@ def compute_msg_id(msg_payload, msg_type, dest_address):
                 bytes(dest_address[1], 'UTF-8') +
                 bytes(str(dest_address[1]), 'UTF-8') +
                 msg_payload_bytes)
-
     m.update(hashable)
 
     return m.digest()
@@ -56,7 +53,6 @@ class MessageTracker(object):
         return self.state == MessageTracker.MSG_ACKED
 
 
-
 def get_msg_id(self, packed_msg):
     return Message(packed_msg=packed_msg).msg_id
 
@@ -78,6 +74,8 @@ class Message(object):
     MSG_ACK = 1
     MSG_TASKUNIT = 2
     MSG_JOB = 3
+    MSG_TASKUNIT_RESULT = 4  # This is basically a taskunit with only status
+                             # and/or result.
 
     VALID_MSG_TYPES = [MSG_STATUS,
                        MSG_ACK,

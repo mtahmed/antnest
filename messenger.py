@@ -8,6 +8,7 @@ import threading
 import serialize
 import message
 import job
+import taskunit
 import utils.logger
 
 
@@ -150,14 +151,14 @@ class Messenger(object):
             self.trackers[msg_id] = tracker
             return tracker
 
-    def send_taskunit(self, taskunit, address, track=False):
+    def send_taskunit(self, tu, address, track=False):
         '''
         Send a taskunit to a remote node.
 
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_taskunit = self.serializer.serialize(taskunit)
+        serialized_taskunit = self.serializer.serialize(tu)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                           serialized_taskunit,
                                                           address)
@@ -167,19 +168,37 @@ class Messenger(object):
             self.trackers[msg_id] = tracker
             return tracker
 
+    def send_taskunit_result(self, tu, address, track=False):
+        '''
+        Send the result of running taskunit.
+        '''
+        # Keep only the taskunit_id, state and result to send.
+        new_tu = taskunit.TaskUnit(taskunit_id=tu.taskunit_id,
+                                   state=tu.state)
+        new_tu.result = tu.result
+        serialized_result = self.serializer.serialize(new_tu)
+        MSG_TASKUNIT_RESULT= message.Message.MSG_TASKUNIT_RESULT
+        msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
+                                                          serialized_result,
+                                                          address)
+        if track:
+            tracker = message.MessageTracker()
+            self.trackers[msg_id] = tracker
+
+        self.queue_for_sending(messages, address)
+
+        if track:
+            return tracker
+
     def queue_for_sending(self, messages, address):
         '''
         This method appends the new messages to the list for the dest in the
         outbound_queue.
         NOTE: This method takes a list of messages and not a single message.
         '''
-        try:
-            self.outbound_queue.extend([(address, message)
-                                       for message
-                                       in messages])
-        except KeyError:
-            raise Exception('Unknown host: %s. Perhaps you should register this'
-                            ' destination.' % dest_hostname)
+        self.outbound_queue.extend([(address, message)
+                                    for message
+                                    in messages])
 
     ##### Message-specific methods.
     def delete_tracker(self, msg_id):
@@ -298,7 +317,6 @@ class Messenger(object):
                 continue
             else:
                 address, msg = messenger.outbound_queue[0]
-                messenger.outbound_queue = messenger.outbound_queue[1:]
 
             messenger.logger.log("Sending a message to %s ..." % address[0])
             # While the msg is still not sent...
@@ -308,8 +326,7 @@ class Messenger(object):
                 for _, event in poll_responses:
                     # If we can send...
                     if event & select.EPOLLOUT:
-                        bytes_sent = messenger.socket.sendto(msg,
-                                                             address)
+                        bytes_sent = messenger.socket.sendto(msg, address)
                         messenger.outbound_queue = messenger.outbound_queue[1:]
                         # If we have a tracker for this msg, then we need to
                         # mark it as sent if this is the last frag for the msg
