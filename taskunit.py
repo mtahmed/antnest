@@ -3,12 +3,40 @@ import hashlib
 import inspect
 
 
+def compute_taskunit_id(data, processor_code):
+    '''
+    Compute the taskunit_id.
+
+    The taskunit_id is the MD5 hash of the concatenation of the taskunit's
+    data and the processor_code.
+    '''
+    m = hashlib.md5()
+    if isinstance(data, bytes):
+        data_bytes = data
+    else:
+        data_bytes = bytes(data, 'UTF-8')
+
+    if isinstance(processor_code, bytes):
+        processor_code_bytes = processor_code
+    else:
+        processor_code_bytes = bytes(processor_code, 'UTF-8')
+
+    hashable = (data_bytes +
+                processor_code_bytes)
+    m.update(hashable)
+
+    return m.digest()
+
+
 class TaskUnit:
     '''
     An instance of this class represents a task unit that is processed by a
     slave node. A task unit is small enough to be processed on its own (that is,
     it does not depend on any other data for its processing). A task unit has
     the following parts to it:
+    # taskunit_id: See the compute_taskunit_id function to see how it's
+      computed. If this parameter is not set for this TaskUnit, then the
+      taskunit cannot be serialized.
     # data: Some data the task is to be run on. E.g. data could be a number
       which the slave machine has to find all the factors for.
       Data must be something that is "serializable". For now, we will define the
@@ -60,6 +88,7 @@ class TaskUnit:
               'COMPLETED')
 
     def __init__(self,
+                 taskunit_id=None,
                  data=None,
                  processor=None,
                  retries=0,
