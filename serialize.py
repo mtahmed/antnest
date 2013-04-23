@@ -54,12 +54,20 @@ class Serializer(object):
             result = None
         retries = tu.retries
 
-        serialized_taskunit = {'taskunit_id': taskunit_id
-                               'data': data,
-                               'processor': processor_code,
-                               'state': state,
-                               'result': result,
-                               'retries': retries}
+        serialized_taskunit = {}
+        if not taskunit_id:
+            raise Exception('taskunit_id must be present for serialization')
+        serialized_taskunit['taskunit_id'] = taskunit_id
+        if data:
+            serialized_taskunit['data'] = data
+        if processor_code:
+            serialized_taskunit['processor'] = processor_code
+        if state:
+            serialized_taskunit['state'] = state
+        if result:
+            serialized_taskunit['result'] = result
+        if retries:
+            serialized_taskunit['retries'] = retries
 
         return json.dumps(serialized_taskunit)
 
@@ -70,19 +78,39 @@ class Serializer(object):
         '''
         taskunit_dict = json.loads(serialized_taskunit)
 
-        processor_code = taskunit_dict['processor']
-        exec(processor_code, globals())  # This defines the processor method in this scope
-        taskunit_id = taskunit_dict['taskunit_id']
-        data        = taskunit_dict['data']
-        state       = taskunit_dict['state']
-        result      = taskunit_dict['result']
-        retries     = taskunit_dict['retries']
+        taskunit_id    = taskunit_dict['taskunit_id']
+        try:
+            processor_code = taskunit_dict['processor']
+            # This defines the processor method in this scope
+            exec(processor_code, globals())
+        except:
+            processor_code = None
+
+        try:
+            data = taskunit_dict['data']
+        except:
+            data = None
+
+        try:
+            state = taskunit_dict['state']
+        except:
+            state = None
+
+        try:
+            result = taskunit_dict['result']
+        except:
+            result = None
+
+        try:
+            retries = taskunit_dict['retries']
+        except:
+            retries = None
 
         tu = taskunit.TaskUnit(taskunit_id=taskunit_id,
                                data=data,
                                processor=processor,
-                               retries=retries)
-        tu.setstate(state)
+                               retries=retries,
+                               state=state)
 
         return tu
 
