@@ -59,7 +59,11 @@ class TaskUnit:
               'REFUSED',
               'COMPLETED')
 
-    def __init__(self, data, processor, retries=0):
+    def __init__(self,
+                 data=None,
+                 processor=None,
+                 retries=0,
+                 state='DEFINED'):
         '''
         :type data: any "serializable" object/value
         :param data: The data to run the processor on.
@@ -68,10 +72,7 @@ class TaskUnit:
         :param processor: A function that takes data and processes it to produce
         the results required.
         '''
-        if not self.processor:
-            raise Exception("No processor provided for a task unit.")
-        else:
-            self.processor = processor
+        self.processor = processor
 
         if retries >= 0:
             self.retries = retries
@@ -80,7 +81,7 @@ class TaskUnit:
 
         self.data = data
         self.result = None
-        self.setstate('DEFINED')
+        self.setstate(state)
 
     def setstate(self, state):
         '''
