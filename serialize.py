@@ -41,16 +41,8 @@ class Serializer(object):
         This method serializes a task unit and returns the result as a JSON
         string.
         '''
-        try:
-            processor_code = tu.processor_code
-        except:
-            processor_code = None
-        if processor_code is not None:
-            processor_code = tu.processor_code
-        elif tu.processor is not None:
-            processor_code = inspect.getsource(tu.processor)
-        else:
-            processor_code = None
+        taskunit_id = tu.taskunit_id
+        processor_code = tu.processor_code
         if tu.data is not None:
             data = tu.data
         else:
@@ -62,8 +54,9 @@ class Serializer(object):
             result = None
         retries = tu.retries
 
-        serialized_taskunit = {'processor': processor_code,
+        serialized_taskunit = {'taskunit_id': taskunit_id
                                'data': data,
+                               'processor': processor_code,
                                'state': state,
                                'result': result,
                                'retries': retries}
@@ -79,12 +72,14 @@ class Serializer(object):
 
         processor_code = taskunit_dict['processor']
         exec(processor_code, globals())  # This defines the processor method in this scope
-        data = taskunit_dict['data']
-        state = taskunit_dict['state']
-        result = taskunit_dict['result']
-        retries = taskunit_dict['retries']
+        taskunit_id = taskunit_dict['taskunit_id']
+        data        = taskunit_dict['data']
+        state       = taskunit_dict['state']
+        result      = taskunit_dict['result']
+        retries     = taskunit_dict['retries']
 
-        tu = taskunit.TaskUnit(data=data,
+        tu = taskunit.TaskUnit(taskunit_id=taskunit_id,
+                               data=data,
                                processor=processor,
                                retries=retries)
         tu.setstate(state)
