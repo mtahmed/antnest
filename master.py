@@ -105,7 +105,7 @@ class Master(node.LocalNode):
             elif msg.msg_type == message.Message.MSG_JOB:
                 print("MASTER: Got a new job.")
                 job_object = deserialized_msg
-                for tu in job_object.splitter.split(job_object.input_file,
+                for tu in job_object.splitter.split(job_object.input_data,
                                                     job_object.processor):
                     tu.processor_code = job_object.processor_code
                     next_slave = self.find_slave()

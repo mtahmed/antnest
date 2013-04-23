@@ -148,13 +148,18 @@ class Serializer(object):
         exec(splitter_code, globals())
         exec(combiner_code, globals())
 
-        j = job.Job(processor)
+        job_id = job.compute_job_id(input_data,
+                                    processor_code,
+                                    splitter_code,
+                                    combiner_code)
+        j = job.Job(job_id=job_id,
+                    processor=processor,
+                    input_data=input_data)
         j.processor_code = processor_code
         j.splitter_code = splitter_code
         j.combiner_code = combiner_code
-
-        j.input_data = input_data
         j.combiner.set_combine_method(combine)
         j.splitter.set_split_method(split)
+
 
         return j

@@ -19,7 +19,7 @@ def enqueue_job(jobpath):
     m.register_destination(my_hostname,
                            ('0.0.0.0', 33310))
     # This file contains at most 3 methods: split, combine, processor and
-    # at most 2 variables: input_data, input_file
+    # at most 1 variables: input_data
     jobdir, jobfile = os.path.split(jobpath)
     job_module_name = jobfile[:-3]
     print(jobdir, jobfile, job_module_name)
@@ -42,7 +42,7 @@ def enqueue_job(jobpath):
         splitter = None
 
     job = Job(processor=jobcode.processor,
-              input_file=jobcode.input_file,
+              input_data=jobcode.input_data,
               splitter=splitter,
               combiner=combiner)
     try:
