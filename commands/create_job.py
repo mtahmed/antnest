@@ -50,7 +50,7 @@ def enqueue_job(jobpath):
     except:
         pass
 
-    m.send_job(job, my_hostname)
+    m.send_job(job, ('0.0.0.0', 33310))
     while len(m.outbound_queue):
         print("Job still not sent out...sleeping.")
         time.sleep(2)
