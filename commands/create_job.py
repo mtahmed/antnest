@@ -12,12 +12,12 @@ sys.path.append(os.getcwd())
 import messenger
 from job import Job, Splitter, Combiner
 
-def enqueue_job(jobpath):
+def enqueue_job(jobpath, dest_port):
     # Bind to some other port. Not to the main 33310.
     m = messenger.Messenger(port=0)
     my_hostname = socket.gethostname()
     m.register_destination(my_hostname,
-                           ('0.0.0.0', 33310))
+                           ('0.0.0.0', dest_port))
     # This file contains at most 3 methods: split, combine, processor and
     # at most 1 variables: input_data
     jobdir, jobfile = os.path.split(jobpath)
@@ -50,7 +50,7 @@ def enqueue_job(jobpath):
     except:
         pass
 
-    m.send_job(job, ('0.0.0.0', 33310))
+    m.send_job(job, ('0.0.0.0', dest_port))
     while len(m.outbound_queue):
         print("Job still not sent out...sleeping.")
         time.sleep(2)
@@ -64,6 +64,10 @@ if __name__ == '__main__':
     parser.add_argument('--jobpath', '-j',
                         type=str,
                         help='the path to the file describing the job')
+    parser.add_argument('--port', '-p',
+                        type=int,
+                        help='the destination port to send the job to')
 
     args = parser.parse_args()
-    enqueue_job(args.jobpath)
+    port = args.port or messenger.Messenger.DEFAULT_PORT
+    enqueue_job(args.jobpath, port)
