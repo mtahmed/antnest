@@ -14,9 +14,9 @@ class Serializer(object):
     object. This method assumes prior knowledge of the object structure to be
     serialized.
     '''
-    def serialize(self, obj):
+    def serialize(self, obj, attrs=None):
         if isinstance(obj, taskunit.TaskUnit):
-            return self.serialize_taskunit(obj)
+            return self.serialize_taskunit(obj, attrs)
         elif isinstance(obj, job.Job):
             return self.serialize_job(obj)
         elif (isinstance(obj, str) or
@@ -36,38 +36,21 @@ class Serializer(object):
         elif msg_type == message.Message.MSG_JOB:
             return self.deserialize_job(msg.msg_payload.decode('UTF-8'))
 
-    def serialize_taskunit(self, tu):
+    def serialize_taskunit(self, tu, attrs):
         '''
         This method serializes a task unit and returns the result as a JSON
         string.
         '''
-        taskunit_id = tu.taskunit_id
-        processor_code = tu.processor_code
-        if tu.data is not None:
-            data = tu.data
-        else:
-            data = None
-        state = tu.state
-        if tu.result is not None:
-            result = tu.result
-        else:
-            result = None
-        retries = tu.retries
+        if (not 'taskunit_id' in attrs or
+            not 'job_id' in attrs):
+            raise Exception('taskunit_id and job_id must be present for serialization')
 
         serialized_taskunit = {}
-        if not taskunit_id:
-            raise Exception('taskunit_id must be present for serialization')
-        serialized_taskunit['taskunit_id'] = taskunit_id
-        if data:
-            serialized_taskunit['data'] = data
-        if processor_code:
-            serialized_taskunit['processor'] = processor_code
-        if state:
-            serialized_taskunit['state'] = state
-        if result:
-            serialized_taskunit['result'] = result
-        if retries:
-            serialized_taskunit['retries'] = retries
+        for attr in attrs:
+            sub_obj = tu
+            for sub_attr in attr.split('.'):
+                sub_obj = getattr(sub_obj, sub_attr)
+            serialized_taskunit[attr] = sub_obj
 
         return json.dumps(serialized_taskunit)
 
@@ -78,11 +61,13 @@ class Serializer(object):
         '''
         taskunit_dict = json.loads(serialized_taskunit)
 
-        taskunit_id    = taskunit_dict['taskunit_id']
+        taskunit_id = taskunit_dict['taskunit_id']
+        job_id = taskunit_dict['job_id']
         try:
-            processor_code = taskunit_dict['processor']
+            processor_code = taskunit_dict['processor._code']
             # This defines the processor method in this scope
             exec(processor_code, globals())
+            processor._code = processor_code
         except:
             processor_code = None
 
@@ -104,13 +89,15 @@ class Serializer(object):
         try:
             retries = taskunit_dict['retries']
         except:
-            retries = None
+            retries = 0
 
         tu = taskunit.TaskUnit(taskunit_id=taskunit_id,
+                               job_id=job_id,
                                data=data,
                                processor=processor,
                                retries=retries,
                                state=state)
+        tu.processor._code = processor_code
 
         return tu
 
@@ -126,7 +113,17 @@ class Serializer(object):
         combiner_code = inspect.getsource(combiner)
         input_data = job_object.input_data
 
-        serialized_job = {'processor': processor_code,
+        if job_object.job_id:
+            job_id = job_object.job_id
+        else:
+            # If job_id isn't already computed, then compute it.
+            job_id = job.compute_job_id(input_data,
+                                        processor_code,
+                                        splitter_code,
+                                        combiner_code)
+
+        serialized_job = {'job_id': job_id,
+                          'processor': processor_code,
                           'splitter': splitter_code,
                           'combiner': combiner_code,
                           'input_data': input_data}
@@ -139,6 +136,7 @@ class Serializer(object):
         '''
         job_dict = json.loads(serialized_job)
 
+        job_id = job_dict['job_id']
         processor_code = job_dict['processor']
         splitter_code = job_dict['splitter']
         combiner_code = job_dict['combiner']
@@ -148,10 +146,6 @@ class Serializer(object):
         exec(splitter_code, globals())
         exec(combiner_code, globals())
 
-        job_id = job.compute_job_id(input_data,
-                                    processor_code,
-                                    splitter_code,
-                                    combiner_code)
         j = job.Job(job_id=job_id,
                     processor=processor,
                     input_data=input_data)

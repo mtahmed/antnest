@@ -46,12 +46,14 @@ class Master(node.LocalNode):
 
         self.pending_jobs = []
         self.completed_jobs = []
-        self.taskunits = []
         self.slave_nodes = []
 
         self.scheduler = SchedRR()
 
         self.messenger = messenger.Messenger()
+
+        # A map of job_ids to Jobs.
+        self.jobs = {}
 
     def process_job(self, new_job):
         '''
@@ -92,8 +94,11 @@ class Master(node.LocalNode):
             if msg is None:
                 time.sleep(2)
                 continue
+
             deserialized_msg = self.messenger.deserialize_message_payload(msg)
-            if msg.msg_type == message.Message.MSG_STATUS:
+
+            msg_type = msg.msg_type
+            if msg_type == message.Message.MSG_STATUS:
                 status = int(deserialized_msg)
                 # If the slave is sending a STATUS_UP, then store it in our
                 # slave_nodes array.
@@ -102,15 +107,34 @@ class Master(node.LocalNode):
                     self.slave_nodes.append(node.RemoteNode(None, address))
                     self.scheduler.increment_total_slaves(1)
                     self.messenger.register_destination('slave1', address)
-            elif msg.msg_type == message.Message.MSG_JOB:
+            elif msg_type == message.Message.MSG_JOB:
                 print("MASTER: Got a new job.")
-                job_object = deserialized_msg
-                for tu in job_object.splitter.split(job_object.input_data,
-                                                    job_object.processor):
-                    tu.processor_code = job_object.processor_code
+                j = deserialized_msg
+                self.jobs[j.job_id] = j
+                for tu in j.splitter.split(j.input_data,
+                                           j.processor):
+                    # The split method only fills in the data and the processor.
+                    # So we need to manually fill the rest.
+                    tu.processor._code = j.processor_code
+                    taskunit_id = taskunit.compute_taskunit_id(tu.data,
+                                                               tu.processor._code)
+                    tu.taskunit_id = taskunit_id
+                    tu.job_id = j.job_id
+
+                    # Store this taskunit in the job's taskunit map.
+                    j.taskunits[tu.taskunit_id] = tu
+
+                    # Now find a slave to send this taskunit to.
                     next_slave = self.find_slave()
-                    next_slave_address = self.slave_nodes[next_slave].address
-                    print(next_slave_address)
-                    tu.taskunit_id = taskunit.compute_taskunit_id(tu.data,
-                                                                  tu.processor_code)
-                    self.messenger.send_taskunit(tu, next_slave_address)
+                    slave_address = self.slave_nodes[next_slave].address
+
+                    # Attributes to send to the slave.
+                    attrs = ['taskunit_id', 'job_id', 'data', 'processor._code',
+                             'retries']
+                    self.messenger.send_taskunit(tu, slave_address, attrs)
+            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+                # TODO: MA Handle failed tasks.
+                print("MASTER: Got a taskunit result back.")
+                tu = deserialized_msg
+                self.jobs[tu.job_id].taskunits[tu.taskunit_id].result = tu.result
+                self.jobs[tu.job_id].taskunits[tu.taskunit_id].state = tu.state

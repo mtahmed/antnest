@@ -25,7 +25,7 @@ def compute_taskunit_id(data, processor_code):
                 processor_code_bytes)
     m.update(hashable)
 
-    return m.digest()
+    return m.hexdigest()
 
 
 class TaskUnit:
@@ -89,11 +89,13 @@ class TaskUnit:
 
     def __init__(self,
                  taskunit_id=None,
+                 job_id=None,
                  data=None,
                  processor=None,
                  retries=0,
                  state='DEFINED'):
         '''
+        TODO
         :type data: any "serializable" object/value
         :param data: The data to run the processor on.
 
@@ -101,16 +103,17 @@ class TaskUnit:
         :param processor: A function that takes data and processes it to produce
         the results required.
         '''
+        self.taskunit_id = taskunit_id
+        self.job_id = job_id
+        self.data = data
         self.processor = processor
-
         if retries >= 0:
             self.retries = retries
         else:
             raise Exception("Acceptable values for retries positive integers and 0.")
-
-        self.data = data
-        self.result = None
         self.setstate(state)
+
+        self.result = None
 
     def setstate(self, state):
         '''

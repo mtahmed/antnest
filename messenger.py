@@ -151,14 +151,15 @@ class Messenger(object):
             self.trackers[msg_id] = tracker
             return tracker
 
-    def send_taskunit(self, tu, address, track=False):
+    def send_taskunit(self, tu, address, track=False, attrs=['taskunit_id',
+          'job_id', 'data', 'processor._code', 'retries', 'state', 'result']):
         '''
         Send a taskunit to a remote node.
 
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_taskunit = self.serializer.serialize(tu)
+        serialized_taskunit = self.serializer.serialize(tu, attrs)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                           serialized_taskunit,
                                                           address)
@@ -168,26 +169,20 @@ class Messenger(object):
             self.trackers[msg_id] = tracker
             return tracker
 
-    def send_taskunit_result(self, tu, address, track=False):
+    def send_taskunit_result(self, tu, address, track=False,
+          attrs=['taskunit_id', 'job_id', 'state', 'result']):
         '''
         Send the result of running taskunit.
         '''
-        # Keep only the taskunit_id, state and result to send.
-        new_tu = taskunit.TaskUnit(taskunit_id=tu.taskunit_id,
-                                   state=tu.state)
-        new_tu.result = tu.result
-        serialized_result = self.serializer.serialize(new_tu)
+        serialized_result = self.serializer.serialize(tu, attrs)
         MSG_TASKUNIT_RESULT= message.Message.MSG_TASKUNIT_RESULT
         msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
                                                           serialized_result,
                                                           address)
+        self.queue_for_sending(messages, address)
         if track:
             tracker = message.MessageTracker()
             self.trackers[msg_id] = tracker
-
-        self.queue_for_sending(messages, address)
-
-        if track:
             return tracker
 
     def queue_for_sending(self, messages, address):

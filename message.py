@@ -73,13 +73,14 @@ class Message(object):
     MSG_STATUS = 0
     MSG_ACK = 1
     MSG_TASKUNIT = 2
-    MSG_JOB = 3
-    MSG_TASKUNIT_RESULT = 4  # This is basically a taskunit with only status
+    MSG_TASKUNIT_RESULT = 3  # This is basically a taskunit with only status
                              # and/or result.
+    MSG_JOB = 4
 
     VALID_MSG_TYPES = [MSG_STATUS,
                        MSG_ACK,
                        MSG_TASKUNIT,
+                       MSG_TASKUNIT_RESULT,
                        MSG_JOB]
 
     def __init__(self,
