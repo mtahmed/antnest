@@ -69,7 +69,7 @@ class Messenger(object):
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
-        self.logger.log("Register Distination %s:%s" % (hostname, address))
+        self.logger.log("Register destination %s:%s" % (hostname, address))
         self.hostname_to_address[hostname] = address
         self.address_to_hostname[address] = hostname
 
@@ -306,6 +306,7 @@ class Messenger(object):
         poller.register(messenger.socket.fileno(),
                         select.EPOLLOUT | select.EPOLLET)  # Edge-triggered.
 
+        messenger.logger.log("Sender up!")
         while True:
             if len(messenger.outbound_queue) == 0:
                 time.sleep(3.0)
@@ -313,7 +314,7 @@ class Messenger(object):
             else:
                 address, msg = messenger.outbound_queue[0]
 
-            messenger.logger.log("Sending a message to %s ..." % address[0])
+            messenger.logger.log("Sending message to %s:%d" % address)
             # While the msg is still not sent...
             while msg is not None:
                 # Poll with timeout of 1.0 seconds.
@@ -356,14 +357,15 @@ class Messenger(object):
 
         fragments_map = {}
 
+        messenger.logger.log("Receiver up!")
         while True:
             # Poll with timeout of 1.0 seconds.
             poll_responses = poller.poll(1.0)
             for fileno, event in poll_responses:
                 # We received something on our socket.
                 if event & select.EPOLLIN:
-                    messenger.logger.log("Received a message!")
                     data, address = messenger.socket.recvfrom(message.Message.MSG_SIZE)
+                    messenger.logger.log("Received message from %s:%d" % address)
                     # Make a message object out of the data and append it
                     # to the fragments_map...
                     msg = message.Message(packed_msg=data)
@@ -404,6 +406,4 @@ class Messenger(object):
                     messenger.logger.log("Unexpected event on receiver socket.")
             else:
                 # Sleep for 3.0 seconds if we didn't get any event this time.
-                messenger.logger.log("No messages received. "
-                                     "Sleeping for 3.0 seconds.")
                 time.sleep(3.0)
