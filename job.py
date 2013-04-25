@@ -1,5 +1,6 @@
 # Standard imports
 import json
+import hashlib
 
 
 def compute_job_id(input_data, processor_code, split_code, combine_code):
@@ -10,7 +11,7 @@ def compute_job_id(input_data, processor_code, split_code, combine_code):
     the processor_code, split method's code, combine_method's code.
     '''
     m = hashlib.md5()
-    if isinstance(data, bytes):
+    if isinstance(input_data, bytes):
         input_data_bytes = input_data
     else:
         input_data_bytes = bytes(input_data, 'UTF-8')
@@ -30,13 +31,13 @@ def compute_job_id(input_data, processor_code, split_code, combine_code):
     else:
         combine_code_bytes = bytes(combine_code, 'UTF-8')
 
-    hashable = (data_bytes +
+    hashable = (input_data_bytes +
                 processor_code_bytes +
                 split_code_bytes +
                 combine_code_bytes)
     m.update(hashable)
 
-    return m.digest()
+    return m.hexdigest()
 
 
 class Job:
@@ -81,6 +82,9 @@ class Job:
         else:
             self.combiner = combiner
 
+        # Map of taskunit_ids to TaskUnits.
+        self.taskunits = {}
+
 
 class Splitter:
     '''
@@ -90,8 +94,7 @@ class Splitter:
     master.
     '''
     def __init__(self):
-        # List of taskunits produced by this splitter.
-        self.taskunits = []
+        pass
 
     def set_split_method(self, split_method):
         '''
@@ -117,7 +120,6 @@ class Splitter:
         input_lines = input_data.split('\n')
         for input_line in input_lines:
             t = taskunit.TaskUnit(data=input_line, processor=processor)
-            self.taskunits.append(t)
             yield t
 
 
@@ -138,14 +140,14 @@ class Combiner:
         '''
         self.__class__.combine = combine_method
 
-    def add_taskunit(self, tu):
+    def add_taskunits(self, tu):
         '''
         Add a taskunit to combine.
 
         When all the taskunits are available (determined by the master),
         the combine() method needs to called to actually combine the results.
         '''
-        self.taskunits.append(tu)
+        self.taskunits.extend(tu)
 
     def combine(self):
         '''
