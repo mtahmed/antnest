@@ -33,6 +33,8 @@ class Serializer(object):
             return int(msg.msg_payload.decode('UTF-8'))
         elif msg_type == message.Message.MSG_TASKUNIT:
             return self.deserialize_taskunit(msg.msg_payload.decode('UTF-8'))
+        elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+            return self.deserialize_taskunit(msg.msg_payload.decode('UTF-8'))
         elif msg_type == message.Message.MSG_JOB:
             return self.deserialize_job(msg.msg_payload.decode('UTF-8'))
 
