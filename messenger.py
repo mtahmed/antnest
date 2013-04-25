@@ -44,6 +44,8 @@ class Messenger(object):
         # be used to track message status.
         self.trackers = {}
 
+        self.logger = utils.logger.Logger('MESSENGER')
+
         # Create and start the receiver and sender threads now.
         receiver_thread = threading.Thread(target=self.receiver,
                                            name='receiver_thread',
@@ -55,7 +57,6 @@ class Messenger(object):
         sender_thread.start()
 
         self.serializer = serialize.Serializer()
-        self.logger = utils.logger.Logger('MESSENGER')
 
     def get_address_from_hostname(self, hostname):
         '''
