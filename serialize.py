@@ -99,7 +99,8 @@ class Serializer(object):
                                processor=processor,
                                retries=retries,
                                state=state)
-        tu.processor._code = processor_code
+        tu.result = result
+        tu.processor.__func__._code = processor_code
 
         return tu
 

@@ -115,7 +115,7 @@ class Master(node.LocalNode):
                                            j.processor):
                     # The split method only fills in the data and the processor.
                     # So we need to manually fill the rest.
-                    tu.processor._code = j.processor_code
+                    tu.processor.__func__._code = j.processor_code
                     taskunit_id = taskunit.compute_taskunit_id(tu.data,
                                                                tu.processor._code)
                     tu.taskunit_id = taskunit_id
@@ -132,9 +132,17 @@ class Master(node.LocalNode):
                     attrs = ['taskunit_id', 'job_id', 'data', 'processor._code',
                              'retries']
                     self.messenger.send_taskunit(tu, slave_address, attrs)
+                j.pending_taskunits = len(j.taskunits)
             elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
                 # TODO: MA Handle failed tasks.
                 print("MASTER: Got a taskunit result back.")
                 tu = deserialized_msg
-                self.jobs[tu.job_id].taskunits[tu.taskunit_id].result = tu.result
-                self.jobs[tu.job_id].taskunits[tu.taskunit_id].state = tu.state
+                job_id = tu.job_id
+                j = self.jobs[job_id]
+                taskunit_id = tu.taskunit_id
+                j.taskunits[taskunit_id].result = tu.result
+                j.taskunits[taskunit_id].state = tu.state
+                j.pending_taskunits -= 1
+                if j.pending_taskunits == 0:
+                    j.combiner.add_taskunits(j.taskunits.values())
+                    j.combiner.combine()

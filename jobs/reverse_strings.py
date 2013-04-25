@@ -11,4 +11,4 @@ def combine(self):
         print(t.result)
     return
 
-input_data = 'hello\nworld\nokay\nbye'
+input_data = 'hello\nworld'

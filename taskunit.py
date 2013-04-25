@@ -106,7 +106,7 @@ class TaskUnit:
         self.taskunit_id = taskunit_id
         self.job_id = job_id
         self.data = data
-        self.processor = processor
+        self.__class__.processor = processor
         if retries >= 0:
             self.retries = retries
         else:
@@ -114,6 +114,9 @@ class TaskUnit:
         self.setstate(state)
 
         self.result = None
+
+    def set_processor(self, processor):
+        self.__class__.processor = processor
 
     def setstate(self, state):
         '''
