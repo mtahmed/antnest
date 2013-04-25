@@ -10,6 +10,7 @@ sys.path.append(os.getcwd())
 
 # Custom imports
 import messenger
+import message
 from job import Job, Splitter, Combiner
 
 def enqueue_job(jobpath, dest_port):
@@ -50,10 +51,10 @@ def enqueue_job(jobpath, dest_port):
     except:
         pass
 
-    m.send_job(job, ('0.0.0.0', dest_port))
-    while len(m.outbound_queue):
-        print("Job still not sent out...sleeping.")
-        time.sleep(2)
+    tracker = m.send_job(job, ('0.0.0.0', dest_port), track=True)
+    while tracker.state != message.MessageTracker.MSG_ACKED:
+        time.sleep(2.0)
+
     return
 
 
