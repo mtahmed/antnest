@@ -23,7 +23,6 @@ def enqueue_job(jobpath, dest_port):
     # at most 1 variables: input_data
     jobdir, jobfile = os.path.split(jobpath)
     job_module_name = jobfile[:-3]
-    print(jobdir, jobfile, job_module_name)
     pkg = __import__(jobdir,
                      globals(),
                      locals(),
