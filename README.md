@@ -13,8 +13,9 @@ input to expect etc.
 ## Slaves
 
 For each slave, create a config file in the `config/` directory named
-`<hostname>-slave-config.json`. Copy the sample `-slave-config`s and edit.
-Then in the root directory of the source, run `python commands/start_slave.py`.
+`<hostname>-slave-config.json`, replacing `<hostname>` with the hostname of the
+machine. Copy the sample `-slave-config`s and edit. Then in the root directory
+of the source, run `python commands/start_slave.py`.
 
 ## Master
 
