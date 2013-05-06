@@ -74,7 +74,6 @@ class Slave(node.LocalNode):
                     tracker = self.messenger.send_status(node.Node.STATE_UP,
                                                          master.address,
                                                          track=True)
-                    tracker = tracker
                     continue
                 elif tracker.state != message.MessageTracker.MSG_ACKED:
                     self.messenger.send_status(node.Node.STATE_UP,
