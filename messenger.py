@@ -112,10 +112,10 @@ class Messenger(object):
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
                                                           serialized_status,
                                                           address)
+        tracker = message.MessageTracker(msg_id, isinuse=track)
+        self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
-            tracker = message.MessageTracker()
-            self.trackers[msg_id] = tracker
             return tracker
 
     def send_ack(self, msg, address, track=False):
@@ -129,10 +129,10 @@ class Messenger(object):
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_ACK,
                                                           msg_id,
                                                           address)
+        tracker = message.MessageTracker(msg_id, isinuse=track)
+        self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
-            tracker = message.MessageTracker()
-            self.trackers[msg_id] = tracker
             return tracker
 
     def send_job(self, job, address, track=False):
@@ -146,10 +146,10 @@ class Messenger(object):
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
                                                           serialized_job,
                                                           address)
+        tracker = message.MessageTracker(msg_id, isinuse=track)
+        self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
-            tracker = message.MessageTracker()
-            self.trackers[msg_id] = tracker
             return tracker
 
     def send_taskunit(self, tu, address, track=False, attrs=['taskunit_id',
@@ -164,10 +164,10 @@ class Messenger(object):
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                           serialized_taskunit,
                                                           address)
+        tracker = message.MessageTracker(msg_id, isinuse=track)
+        self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
-            tracker = message.MessageTracker()
-            self.trackers[msg_id] = tracker
             return tracker
 
     def send_taskunit_result(self, tu, address, track=False,
@@ -180,10 +180,10 @@ class Messenger(object):
         msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
                                                           serialized_result,
                                                           address)
+        tracker = message.MessageTracker(msgid, isinuse=track)
+        self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
-            tracker = message.MessageTracker()
-            self.trackers[msg_id] = tracker
             return tracker
 
     def queue_for_sending(self, messages, address):
@@ -197,10 +197,11 @@ class Messenger(object):
                                     in messages])
 
     ##### Message-specific methods.
-    def delete_tracker(self, msg_id):
+    def delete_tracker(self, tracker):
         '''
         The tracker for msg_id is no longer needed. Delete it.
         '''
+        msg_id = tracker.msg_id
         del self.trackers[msg_id]
 
     def packed_messages_from_data(self, msg_type, msg_payload, address):
@@ -390,14 +391,15 @@ class Messenger(object):
                             # If it is an ack message, then we don't need to put it on the
                             # inbound_queue.
                             msg_id = catted_msg.msg_id
+                            # If this message is an ack, then update the tracker.
                             if catted_msg.msg_type == message.Message.MSG_ACK:
-                                try:
-                                    MSG_ACKED = message.MessageTracker.MSG_ACKED
-                                    acked_msg_id = catted_msg.msg_payload
-                                    tracker = messenger.trackers[acked_msg_id]
-                                    tracker.set_state(MSG_ACKED)
-                                except KeyError:
-                                    pass
+                                MSG_ACKED = message.MessageTracker.MSG_ACKED
+                                acked_msg_id = catted_msg.msg_payload
+                                tracker = messenger.trackers[acked_msg_id]
+                                tracker.set_state(MSG_ACKED)
+                                # If the tracker is not being used, delete it.
+                                if not tracker.isinuse:
+                                    messenger.delete_tracker(tracker)
                                 continue
                             messenger.inbound_queue.append((address, catted_msg))
                             # Send an ack now that we have received the msg.

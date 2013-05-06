@@ -69,16 +69,18 @@ class Slave(node.LocalNode):
             for index, master in enumerate(unacked_masters):
                 if master is None:
                     continue
-                if trackers[index] is None:
+                tracker = trackers[index]
+                if tracker is None:
                     tracker = self.messenger.send_status(node.Node.STATE_UP,
                                                          master.address,
                                                          track=True)
-                    trackers[index] = tracker
+                    tracker = tracker
                     continue
-                elif trackers[index].state != message.MessageTracker.MSG_ACKED:
+                elif tracker.state != message.MessageTracker.MSG_ACKED:
                     self.messenger.send_status(node.Node.STATE_UP,
                                                master.address)
-                elif trackers[index].state == message.MessageTracker.MSG_ACKED:
+                elif tracker.state == message.MessageTracker.MSG_ACKED:
+                    self.messenger.delete_tracker(tracker)
                     unacked_masters[index] = None
                     num_unacked_masters -= 1
             time.sleep(10.0)

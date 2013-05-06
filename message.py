@@ -35,8 +35,11 @@ class MessageTracker(object):
                     MSG_SENT,
                     MSG_ACKED]
 
-    def __init__(self):
+    def __init__(self, msgid, isinuse=False):
+        self.msg_id = msg_id
         self.state = MessageTracker.MSG_QUEUED
+        # Says whether the this tracker is in use.
+        self.isinuse = False
 
     def set_state(self, state):
         if not state in MessageTracker.VALID_STATES:
@@ -51,6 +54,9 @@ class MessageTracker(object):
 
     def is_acked(self):
         return self.state == MessageTracker.MSG_ACKED
+
+    def not_in_use(self):
+        self.isinuse = False
 
 
 def get_msg_id(self, packed_msg):
