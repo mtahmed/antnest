@@ -35,7 +35,7 @@ class MessageTracker(object):
                     MSG_SENT,
                     MSG_ACKED]
 
-    def __init__(self, msgid, isinuse=False):
+    def __init__(self, msg_id, isinuse=False):
         self.msg_id = msg_id
         self.state = MessageTracker.MSG_QUEUED
         # Says whether the this tracker is in use.
