@@ -22,7 +22,6 @@ class Heap(object):
         :param reverse: Determines whether to construct a min heap (for
         reverse = False) or to contruct a max heap (for reverse = True)
         '''
-
         self.reverse = reverse
         if key is None:
             raise Exception("A key must be provided to create a Heap.")
@@ -45,16 +44,14 @@ class Heap(object):
         else:
             return math.ceil(index / 2) - 1
 
-    def insert(self, item):
-        '''
-        Insert the item into the heap that we already have.
+    def push(self, item):
+        '''Push the item into the heap that we already have.
         '''
         self.items.append(item)
         self.__bubble_up(len(self.items) - 1)
 
     def pop(self):
-        '''
-        Remove the item at the root node and return it.
+        '''Remove the item at the root node and return it.
         '''
         return_item = self.items[0]
         self.items = self.items[1:]
