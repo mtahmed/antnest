@@ -8,8 +8,7 @@ class Heap(object):
     the item which has the lowest attribute P" or "Give me the item which has
     the lowest total sum of its attributes P1 and P2".
     '''
-
-    def __init__(self, items, key, reverse=False):
+    def __init__(self, items=[], key=lambda x: x, reverse=False):
         '''
         Initialize a heap of slaves.
 
@@ -59,8 +58,9 @@ class Heap(object):
         '''
         return_item = self.items[0]
         self.items = self.items[1:]
-        self.items.insert(0, self.items.pop())
-        self.__bubble_down(0)
+        if len(self.items) > 0:
+            self.items.insert(0, self.items.pop())
+            self.__bubble_down(0)
         return return_item
 
     def __bubble_up(self, index):
