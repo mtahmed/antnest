@@ -8,25 +8,7 @@ import messenger
 import message
 import taskunit
 import job
-
-
-class SchedRR():
-    '''
-    A class representing a Round Robin scheduler.
-    '''
-    def __init__(self):
-        self.next_slave = 0
-        self.total_slaves = 0
-
-    def get_next_slave(self):
-        if self.total_slaves <= 0:
-            return None
-        next_slave = self.next_slave
-        self.next_slave = (self.next_slave + 1) % self.total_slaves
-        return next_slave
-
-    def increment_total_slaves(self, increment):
-        self.total_slaves += increment
+import schedule
 
 
 class Master(node.LocalNode):
@@ -47,11 +29,8 @@ class Master(node.LocalNode):
         self.pending_jobs = []
         self.completed_jobs = []
         self.slave_nodes = []
-
-        self.scheduler = SchedRR()
-
+        self.scheduler = schedule.MinMakespan()
         self.messenger = messenger.Messenger()
-
         # A map of job_ids to Jobs.
         self.jobs = {}
 
@@ -66,12 +45,6 @@ class Master(node.LocalNode):
         '''
         for new_taskunit in new_job.splitter.split:
             print(new_taskunit)
-
-    def find_slave(self):
-        '''
-        Find a slave using the scheduling method defined during __init__.
-        '''
-        return self.scheduler.get_next_slave()
 
     def get_node_address(self, node):
         '''
@@ -105,14 +78,13 @@ class Master(node.LocalNode):
                 print("MASTER: STATE_UP received from %s:%d" % address)
                 if status == node.Node.STATE_UP:
                     self.slave_nodes.append(node.RemoteNode(None, address))
-                    self.scheduler.increment_total_slaves(1)
+                    self.scheduler.add_machine()
                     self.messenger.register_destination('slave1', address)
             elif msg_type == message.Message.MSG_JOB:
                 print("MASTER: Got a new job.")
                 j = deserialized_msg
                 self.jobs[j.job_id] = j
-                for tu in j.splitter.split(j.input_data,
-                                           j.processor):
+                for tu in j.splitter.split(j.input_data, j.processor):
                     # The split method only fills in the data and the processor.
                     # So we need to manually fill the rest.
                     tu.processor.__func__._code = j.processor_code
@@ -124,8 +96,8 @@ class Master(node.LocalNode):
                     # Store this taskunit in the job's taskunit map.
                     j.taskunits[tu.taskunit_id] = tu
 
-                    # Now find a slave to send this taskunit to.
-                    next_slave = self.find_slave()
+                    # Now schedule this task unit.
+                    next_slave = self.scheduler.schedule_job(tu)
                     slave_address = self.slave_nodes[next_slave].address
 
                     # Attributes to send to the slave.
