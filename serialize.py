@@ -3,11 +3,6 @@ import types
 import inspect
 import json
 
-# Custom imports
-import taskunit
-import job
-import message
-
 
 class Serializable(object):
     '''
@@ -17,9 +12,12 @@ class Serializable(object):
     def __init__(self,
                  noserialize=['__init__', 'noserialize', 'serialize_method',
                               'serialize', 'deserialize', 'get_vars',
-                              'get_methods']):
+                              'get_methods'],
+                 recursive_serialize=False):
         # List of methods that are not to be serialized.
         self.noserialize = noserialize
+        # Whether to recursively serialize
+        self.recursive_serialize = recursive_serialize
         return
 
     def get_vars(self):
@@ -30,8 +28,18 @@ class Serializable(object):
         '''
         return {var: getattr(self, var) for var in dir(self)
                 if not inspect.ismethod(getattr(self, var)) and
-                not var.startswith('__') and
-                not var in self.noserialize}
+                   not var.startswith('__') and
+                   not var in self.noserialize and
+                   not issubclass(getattr(self, var), Serializable)}
+
+    def get_serializables(self):
+        '''Get all the attributes of this class that inherit from Serialazble.
+
+        :returns: A dictionary of variable name to value.
+        :rtype: dict
+        '''
+        return {var: getattr(self, var).serialize() for var in dir(self)
+                if issubclass(getattr(self, var), Serializable)}
 
     def get_methods(self):
         '''Get all the method attributes of this class.
@@ -114,6 +122,9 @@ class Serializable(object):
             attr_dict[var] = json.dumps(value)
         for name, method in serialize_methods.items():
             attr_dict[name] = self.serialize_method(method)
+        if self.recursive_serialize:
+            for var, value in self.get_serializables():
+                attr_dict[var] = value
 
         # Finally, dump the json for the whole dict.
         # We also need the name of the class as the key to the main attributes
@@ -171,6 +182,7 @@ class Serializable(object):
 
         return deserialized
 
+"""
 class Serializer(object):
     '''
     An instance of this class represents a an object that can serialize a given
@@ -323,3 +335,4 @@ class Serializer(object):
 
 
         return j
+    """
