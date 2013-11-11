@@ -127,14 +127,13 @@ class Serializable(object):
                 attr_dict[var] = value
 
         # Finally, dump the json for the whole dict.
-        # We also need the name of the class as the key to the main attributes
-        # dictionary in the final json string.
-        serialized = json.dumps(attr_dict)
+        serialized = json.dumps({'class': self.__class__.__name__,
+                                 'attrs': attr_dict})
 
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized):
+    def deserialize(cls, serialized_attrs):
         '''Deserialize the ``serialized`` string.
 
         Note that this method relies on getting the mandatory arguments to
@@ -177,6 +176,11 @@ class Serializable(object):
             # If it's a method, we need to make a bound method to deserialized.
             if val.startswith('def '):
                 val = types.MethodType(globals()[key], deserialized)
+            # If it's another serialized object embedded in this one, then
+            # deserliaze it as well.
+            if isinstance(val, dict):
+                if 'class' in val.keys:
+                    val = globals()[val['class']].deserialize(val['attrs'])
             # Now add the attribute to the deserialized object.
             setattr(deserialized, key, val)
 
