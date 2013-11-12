@@ -3,3 +3,5 @@ __pycache__
 .*.pyc
 .*.pyo
 .*.swp
+cache/.*py
+cache/__pycache__
