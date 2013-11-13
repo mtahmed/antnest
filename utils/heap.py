@@ -35,6 +35,11 @@ class Heap(object):
         for index in range(math.floor(len(self.items) / 2), -1, -1):
             self.__bubble_down(index)
 
+    def size(self):
+        '''Get the number of elements in the heap.
+        '''
+        return len(self.items)
+
     def parent(self, index):
         '''
         Get the parent of the element at index ``index``.
