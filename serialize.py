@@ -2,9 +2,11 @@
 import types
 import inspect
 import json
+import os
+import hashlib
 
 
-class Serializable(object):
+class Serializable:
     '''
     This is a base class which provides the basic serialization methods to be
     used from within the class derived from this class.
@@ -12,7 +14,8 @@ class Serializable(object):
     def __init__(self,
                  noserialize=['__init__', 'noserialize', 'serialize_method',
                               'serialize', 'deserialize', 'get_vars',
-                              'get_methods'],
+                              'get_methods', 'get_serializables', '__class__',
+                              'recursive_serialize'],
                  recursive_serialize=False):
         # List of methods that are not to be serialized.
         self.noserialize = noserialize
@@ -28,9 +31,10 @@ class Serializable(object):
         '''
         return {var: getattr(self, var) for var in dir(self)
                 if not inspect.ismethod(getattr(self, var)) and
+                   not inspect.isfunction(getattr(self, var)) and
                    not var.startswith('__') and
                    not var in self.noserialize and
-                   not issubclass(getattr(self, var), Serializable)}
+                   not isinstance(getattr(self, var), Serializable)}
 
     def get_serializables(self):
         '''Get all the attributes of this class that inherit from Serialazble.
@@ -39,7 +43,8 @@ class Serializable(object):
         :rtype: dict
         '''
         return {var: getattr(self, var).serialize() for var in dir(self)
-                if issubclass(getattr(self, var), Serializable)}
+                if isinstance(getattr(self, var), Serializable) and
+                var != '__class__'}
 
     def get_methods(self):
         '''Get all the method attributes of this class.
@@ -52,7 +57,9 @@ class Serializable(object):
         '''
         return {name: method for name, method in
                 inspect.getmembers(self, predicate=callable)
-                if name not in self.noserialize}
+                if name not in self.noserialize and
+                not inspect.isbuiltin(method) and
+                str(type(method)) != '<class \'method-wrapper\'>'}
 
     def serialize_method(self, method):
         ''' Serialize a method.
@@ -106,14 +113,14 @@ class Serializable(object):
                               var, value in all_vars
                               if var in include_attrs}
             serialize_methods = {name: method for
-                                 name, method in all_vars
+                                 name, method in all_methods
                                  if name in include_attrs}
         elif exclude_attrs:
             serialize_vars = {var: value for
                               var, value in all_vars
                               if var not in exclude_attrs}
             serialize_methods = {name: method for
-                                 name, method in all_vars
+                                 name, method in all_methods
                                  if name not in exclude_attrs}
 
         # Attribute dictionary.
@@ -123,17 +130,20 @@ class Serializable(object):
         for name, method in serialize_methods.items():
             attr_dict[name] = self.serialize_method(method)
         if self.recursive_serialize:
-            for var, value in self.get_serializables():
+            for var, value in self.get_serializables().items():
                 attr_dict[var] = value
 
         # Finally, dump the json for the whole dict.
+        import pprint
+        pprint.pprint({'class': self.__class__.__name__,
+                       'attrs': attr_dict})
         serialized = json.dumps({'class': self.__class__.__name__,
                                  'attrs': attr_dict})
 
         return serialized
 
     @classmethod
-    def deserialize(cls, serialized_attrs):
+    def deserialize(cls, serialized):
         '''Deserialize the ``serialized`` string.
 
         Note that this method relies on getting the mandatory arguments to
@@ -148,29 +158,41 @@ class Serializable(object):
 
         :param cls: The class to which to deserialize the string to.
         :type cls: class
-        :param serialized: The serialized string to be deserialized.
+        :param serialized_attrs: The serialized string to be deserialized.
         :returns: An instance of ``cls`` representing the ``serialized`` string.
         :rtype: instance of ``cls``
         '''
+        cls_name = cls.__name__
+        serialized = json.loads(serialized)
+        serialized_attrs = serialized['attrs']
         # Get the list of mandatory arguments to initialize this class.
         argspec = inspect.getargspec(cls.__init__)
         num_optional_args = len(argspec.defaults)
         args = argspec.args
         mandatory_args = args[1:len(args) - num_optional_args]
-        # Now convert the serialized json string into its python representation.
-        serialized = json.loads(serialized)
         # Execute any functions so that they are defined in local scope.
         # All functions/methods start with 'def ' string.
-        for key, val in serialized.items():
+        # Also "cache" all the functions. This allows us to implement proper
+        # caching (TODO) and also allows us to get the source for functions.
+        for key, val in serialized_attrs.items():
             if val.startswith('def '):
-                exec(val, globals())
-        mandatory_args_vals = [serialized[arg] for arg in mandatory_args]
+                # The filename for the cached source is:
+                # <cls_name>_<method_name>_<source_md5_hash>.py
+                m = hashlib.md5()
+                m.update(val.encode('utf-8'))
+                md5_hash = m.hexdigest()
+                fname = '%s_%s_%s.py' % (cls_name.lower(), key, md5_hash)
+                f = open(os.path.join('cache', fname), mode='w')
+                f.write(val)
+                f.close()
+                pkg = __import__('cache', globals(), locals(), [fname[:-3]], 0)
+                globals()[key] = getattr(getattr(pkg, fname[:-3]), key)
+        mandatory_args_vals = [serialized_attrs[arg] for arg in mandatory_args]
         # Now initialize the object with the mandatory arguments.
-        print(mandatory_args)
         deserialized = cls(*mandatory_args_vals)
         # Now add all the attributes that aren't mandatory arguments to __init__
         # to the deserialized object.
-        for key, val in serialized.items():
+        for key, val in serialized_attrs.items():
             if key in mandatory_args:
                 continue
             # If it's a method, we need to make a bound method to deserialized.
