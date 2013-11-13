@@ -2,12 +2,16 @@
 import json
 import hashlib
 
+# Custom imports
+import serialize
+import taskunit
+
 
 def compute_job_id(input_data, processor_code, split_code, combine_code):
     '''
     Compute the job_id.
 
-    The taskunit_id is the MD5 hash of the concatenation of the job's data,
+    The job_id is the MD5 hash of the concatenation of the job's data,
     the processor_code, split method's code, combine_method's code.
     '''
     m = hashlib.md5()
@@ -40,14 +44,14 @@ def compute_job_id(input_data, processor_code, split_code, combine_code):
     return m.hexdigest()
 
 
-class Job:
+class Job(serialize.Serializable):
     '''
     An instance of this class represents a job to be run on a distributed
     system cluster. The job defines a splitter, a combiner, the input to the
     job, the processor for the taskunits.
     '''
     def __init__(self,
-                 job_id=None,
+                 id=None,
                  input_data=None,
                  processor=None,
                  splitter=None,
@@ -64,29 +68,22 @@ class Job:
         :param processor: A function which every taskunit needs to be able
         to processor some given data into the required result.
         '''
-        self.job_id = job_id
+        super().__init__(recursive_serialize=True)
+        self.noserialize += ['taskunits']
+        self.id = id
 
-        if not processor:
-            raise Exception('A processor is required for a job.')
-        self.processor = processor
+        self.__class__.processor = processor
 
         self.input_data = input_data
 
-        if splitter is None:
-            self.splitter = Splitter()
-        else:
-            self.splitter = splitter
+        self.splitter = splitter if splitter else Splitter()
+        self.combiner = combiner if combiner else Combiner()
 
-        if combiner is None:
-            self.combiner = Combiner()
-        else:
-            self.combiner = combiner
-
-        # Map of taskunit_ids to TaskUnits.
+        # Map of taskunit ids to TaskUnits.
         self.taskunits = {}
 
 
-class Splitter:
+class Splitter(serialize.Serializable):
     '''
     An instance of this class represents a splitter used by a master to "split"
     a job into smaller task units to be assigned to the slaves.
@@ -94,7 +91,8 @@ class Splitter:
     master.
     '''
     def __init__(self):
-        pass
+        super().__init__()
+        self.noserialize += ['set_split_method']
 
     def set_split_method(self, split_method):
         '''
@@ -123,7 +121,7 @@ class Splitter:
             yield t
 
 
-class Combiner:
+class Combiner(serialize.Serializable):
     '''
     An instance of this class represents a combiner used by a master to
     combine the results from taskunits.
@@ -132,6 +130,8 @@ class Combiner:
     master.
     '''
     def __init__(self):
+        super().__init__()
+        self.noserialize += ['set_combine_method', 'add_taskunits', 'taskunits']
         self.taskunits = []
 
     def set_combine_method(self, combine_method):
