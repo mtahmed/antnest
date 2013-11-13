@@ -57,6 +57,8 @@ class MinMakespan():
         :returns: The machine the job get's scheduled on.
         :rtype: int representing the machine
         '''
+        if self.machines == 0:
+            raise Exception("No machine available")
         machine, load = self.loads_heap.pop()
         self.assignments[machine].append(job)
         self.loads_heap.push((machine, load + job.job_size))
@@ -65,5 +67,6 @@ class MinMakespan():
 
     def add_machine(self, speed=1):
         self.speeds.append(speed)
+        self.assignments.append([])
         self.loads_heap.push((self.machines, 0))
         self.machines += 1
