@@ -1,6 +1,7 @@
 # Standard imports
 import hashlib
 import inspect
+import serialize
 
 
 def compute_taskunit_id(data, processor_code):
@@ -28,15 +29,13 @@ def compute_taskunit_id(data, processor_code):
     return m.hexdigest()
 
 
-class TaskUnit:
+class TaskUnit(serialize.Serializable):
     '''
     An instance of this class represents a task unit that is processed by a
     slave node. A task unit is small enough to be processed on its own (that is,
     it does not depend on any other data for its processing). A task unit has
     the following parts to it:
-    # taskunit_id: See the compute_taskunit_id function to see how it's
-      computed. If this parameter is not set for this TaskUnit, then the
-      taskunit cannot be serialized.
+    # id: See the compute_taskunit_id function to see how it's computed.
     # data: Some data the task is to be run on. E.g. data could be a number
       which the slave machine has to find all the factors for.
       Data must be something that is "serializable". For now, we will define the
@@ -88,7 +87,7 @@ class TaskUnit:
               'COMPLETED')
 
     def __init__(self,
-                 taskunit_id=None,
+                 id=None,
                  job_id=None,
                  data=None,
                  processor=None,
@@ -103,14 +102,17 @@ class TaskUnit:
         :param processor: A function that takes data and processes it to produce
         the results required.
         '''
-        self.taskunit_id = taskunit_id
+        super().__init__()
+        self.noserialize += ['STATES', 'set_processor', 'setstate', 'run',
+                             'retries']
+        self.id = id
         self.job_id = job_id
         self.data = data
         self.__class__.processor = processor
         if retries >= 0:
             self.retries = retries
         else:
-            raise Exception("Acceptable values for retries positive integers and 0.")
+            raise Exception("Retries must be >= 0.")
         self.setstate(state)
 
         self.result = None
