@@ -2,6 +2,6 @@ test
 __pycache__
 *.pyc
 *.pyo
-*.swp
+.*.sw?
 cache/*.py
 cache/__pycache__
