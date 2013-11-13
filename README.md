@@ -1,31 +1,74 @@
-# PyDistribute
+# antnest
 
 A distrubuted system implementation aimed to be quick to deploy and simple to
 use. All it takes to start using it is to write your problem as 3 functions
 on the _master_ side: `split()`, `combine()` and `processor()`.
 
-This works without the _worker_ (slave) nodes having any knowledge of what the
-function signatures look like for the work that needs to be done or what kind of
-input to expect etc.
+This works without the _worker_ (slave) nodes having any knowledge that is
+usually required for an RPC call.
 
-# Deployment
+## Installation
 
-## Slaves
+On all the masters and slaves, clone the antnest repository:
 
-For each slave, create a config file in the `config/` directory named
-`<hostname>-slave-config.json`, replacing `<hostname>` with the hostname of the
-machine. Copy the sample `-slave-config`s and edit. Then in the root directory
-of the source, run `python commands/start_slave.py`.
+```bash
+git clone https://github.com/mtahmed/antnest.git
+cd antnest
+```
 
-## Master
+## Config
 
-On the master side, just clone the repository and in the root directory of the
-source, run `python commands/start_master.py`.
+On the slaves, add a JSON config file, telling the slaves about how to find
+masters:
 
-Then one can create a job in the `/jobs/` directory. See `sample_job.py` for
-examples on how to do that.
+```bash
+cat > config/$(hostname)-slave-config.json
+{
+  "masters": [
+    {
+      "ip": "192.168.0.1",
+      "hostname": "master"
+    }
+  ]
+}
+^D
+```
 
-Once the slaves are up and the master is aware of the slaves, send the job to
-the master by running `python commands/create_job.py -j jobs/job_file.py`.
+_NOTE_: the `$(hostname)-slave-config.json` used as the filename for the config
+file. That's the convention used and that's what the node will look for when
+it's started up.
 
-That's it.
+## Usage
+
+Start the slave with the help `commands/start-slave.py` script:
+
+```bash
+python commands/start-slave.py
+```
+
+Do the same for the master:
+
+```bash
+python commands/start-master.py
+```
+
+Then write a job (see below on how to do that) and tell the master to run the
+job:
+
+```bash
+python commands/create_job.py -j jobs/reverse_strings.py
+```
+
+The jobs are, by convention, defined in `jobs/` directory as python files.
+`reverse_strings.py` is one of the sample jobs provided.
+
+# Contact
+
+- Muhammad Tauqir Ahmad
+- muhammad.tauqir.ahmad@gmail.com
+- [csclub.uwaterloo.ca/~mtahmed](http://csclub.uwaterloo.ca/~mtahmed)
+
+## TODO
+
+- Add license info.
+- Testing
