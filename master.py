@@ -1,6 +1,7 @@
 # Standard imports
 import json
 import time
+import inspect
 
 # Custom imports
 import node
@@ -68,11 +69,9 @@ class Master(node.LocalNode):
                 time.sleep(2)
                 continue
 
-            deserialized_msg = self.messenger.deserialize_message_payload(msg)
-
             msg_type = msg.msg_type
             if msg_type == message.Message.MSG_STATUS:
-                status = int(deserialized_msg)
+                status = int(msg.msg_payload.decode('utf-8'))
                 # If the slave is sending a STATUS_UP, then store it in our
                 # slave_nodes array.
                 print("MASTER: STATE_UP received from %s:%d" % address)
@@ -82,26 +81,26 @@ class Master(node.LocalNode):
                     self.messenger.register_destination('slave1', address)
             elif msg_type == message.Message.MSG_JOB:
                 print("MASTER: Got a new job.")
-                j = deserialized_msg
-                self.jobs[j.job_id] = j
+                object_dict = msg.msg_payload.decode('utf-8')
+                j = job.Job.deserialize(object_dict)
+                self.jobs[j.id] = j
                 for tu in j.splitter.split(j.input_data, j.processor):
                     # The split method only fills in the data and the processor.
                     # So we need to manually fill the rest.
-                    tu.processor.__func__._code = j.processor_code
                     taskunit_id = taskunit.compute_taskunit_id(tu.data,
-                                                               tu.processor._code)
-                    tu.taskunit_id = taskunit_id
-                    tu.job_id = j.job_id
+                                                               inspect.getsource(tu.processor))
+                    tu.id = taskunit_id
+                    tu.job_id = j.id
 
                     # Store this taskunit in the job's taskunit map.
-                    j.taskunits[tu.taskunit_id] = tu
+                    j.taskunits[tu.id] = tu
 
                     # Now schedule this task unit.
                     next_slave = self.scheduler.schedule_job(tu)
                     slave_address = self.slave_nodes[next_slave].address
 
                     # Attributes to send to the slave.
-                    attrs = ['taskunit_id', 'job_id', 'data', 'processor._code',
+                    attrs = ['id', 'job_id', 'data', 'processor._code',
                              'retries']
                     self.messenger.send_taskunit(tu, slave_address, attrs)
                 j.pending_taskunits = len(j.taskunits)
@@ -111,7 +110,7 @@ class Master(node.LocalNode):
                 tu = deserialized_msg
                 job_id = tu.job_id
                 j = self.jobs[job_id]
-                taskunit_id = tu.taskunit_id
+                taskunit_id = tu.id
                 j.taskunits[taskunit_id].result = tu.result
                 j.taskunits[taskunit_id].state = tu.state
                 j.pending_taskunits -= 1
