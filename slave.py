@@ -17,7 +17,7 @@ class Slave(node.LocalNode):
     back.
     """
 
-    def __init__(self, ip=None):
+    def __init__(self, port, ip=None):
         """
         FIXME: This param is unused for now. Maybe in the future we will need it
                in case we need to specify which interface to use.
@@ -30,14 +30,15 @@ class Slave(node.LocalNode):
 
         self.task_q = []
         self.master_nodes = []
+        self.config['port'] = port
 
-        self.messenger = messenger.Messenger()
+        self.messenger = messenger.Messenger(port=self.config['port'])
 
         for master in self.config['masters']:
             master_hostname = master['hostname']
 
             try:
-                master_port = self.config['port']
+                master_port = master['port']
             except KeyError:
                 master_port = messenger.Messenger.DEFAULT_PORT
 
@@ -74,6 +75,7 @@ class Slave(node.LocalNode):
                     tracker = self.messenger.send_status(node.Node.STATE_UP,
                                                          master.address,
                                                          track=True)
+                    trackers[index] = tracker
                     continue
                 elif tracker.state != message.MessageTracker.MSG_ACKED:
                     self.messenger.send_status(node.Node.STATE_UP,
