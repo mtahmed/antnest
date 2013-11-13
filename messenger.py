@@ -5,7 +5,6 @@ import socket
 import threading
 
 # Custom imports
-import serialize
 import message
 import job
 import taskunit
@@ -56,8 +55,6 @@ class Messenger(object):
         receiver_thread.start()
         sender_thread.start()
 
-        self.serializer = serialize.Serializer()
-
     def get_address_from_hostname(self, hostname):
         '''
         Return the ip address for the hostname `hostname`.
@@ -74,14 +71,6 @@ class Messenger(object):
         self.hostname_to_address[hostname] = address
         self.address_to_hostname[address] = hostname
 
-    def deserialize_message_payload(self, msg):
-        '''
-        Takes as input a Message object and deserializes the payload of the
-        message and returns it.
-        The return value depends on what kind of object the payload represents.
-        '''
-        return self.serializer.deserialize(msg)
-
     def receive(self, return_payload=True):
         '''
         This method checks this messenger's inbound_queue and if its not empty,
@@ -93,11 +82,19 @@ class Messenger(object):
         if self.inbound_queue:
             msg = self.inbound_queue[0]
             self.inbound_queue = self.inbound_queue[1:]
-            if return_payload:
-                deserialized = self.deserialize_message_payload(msg)
-                return deserialized
-            else:
+
+            if not return_payload:
                 return msg
+
+            msg_type = msg.msg_type
+            if msg_type == message.Message.MSG_STATUS:
+                return int(msg.msg_payload.decode('UTF-8'))
+            elif msg_type == message.Message.MSG_TASKUNIT:
+                return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+                return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+            elif msg_type == message.Message.MSG_JOB:
+                return job.Job.deserialize(msg.msg_payload.decode('UTF-8'))
         else:
             return (None, None)
 
@@ -108,7 +105,8 @@ class Messenger(object):
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_status = self.serializer.serialize(status)
+        # Trivially serializeable.
+        serialized_status = str(status)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
                                                           serialized_status,
                                                           address)
@@ -142,7 +140,7 @@ class Messenger(object):
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_job = self.serializer.serialize(job)
+        serialized_job = job.serialize()
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
                                                           serialized_job,
                                                           address)
@@ -160,7 +158,7 @@ class Messenger(object):
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_taskunit = self.serializer.serialize(tu, attrs)
+        serialized_taskunit = tu.serialize(include_attrs=attrs)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                           serialized_taskunit,
                                                           address)
@@ -175,12 +173,12 @@ class Messenger(object):
         '''
         Send the result of running taskunit.
         '''
-        serialized_result = self.serializer.serialize(tu, attrs)
+        serialized_result = tu.serialize(include_attrs=attrs)
         MSG_TASKUNIT_RESULT= message.Message.MSG_TASKUNIT_RESULT
         msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
                                                           serialized_result,
                                                           address)
-        tracker = message.MessageTracker(msgid, isinuse=track)
+        tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
