@@ -23,21 +23,17 @@ def enqueue_job(jobpath, dest_port):
     # at most 1 variables: input_data
     jobdir, jobfile = os.path.split(jobpath)
     job_module_name = jobfile[:-3]
-    pkg = __import__(jobdir,
-                     globals(),
-                     locals(),
-                     [job_module_name],
-                     0)
+    pkg = __import__(jobdir, globals(), locals(), [job_module_name], 0)
     jobcode = getattr(pkg, job_module_name)
     try:
         combiner = Combiner()
-        combiner.combine = jobcode.combine
+        combiner.set_combine_method(jobcode.combine)
     except:
         combiner = None
 
     try:
         splitter = Splitter()
-        splitter.split = jobcode.split
+        splitter.set_split_method(jobcode.split)
     except:
         splitter = None
 
