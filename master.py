@@ -36,7 +36,7 @@ class Master(node.LocalNode):
         self.jobs = {}
 
     def process_job(self, new_job):
-        '''
+        '''TODO: MA: Implement this.
         This method takes a job as input and "processes" it in the sense
         that it generates TaskUnits from the Job and sends them off to the
         "right" Slaves to be processed.

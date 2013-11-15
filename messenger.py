@@ -140,7 +140,7 @@ class Messenger(object):
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_job = job.serialize()
+        serialized_job = job.serialize(json_encode=True)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
                                                           serialized_job,
                                                           address)
@@ -158,7 +158,7 @@ class Messenger(object):
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_taskunit = tu.serialize(include_attrs=attrs)
+        serialized_taskunit = tu.serialize(include_attrs=attrs, json_encode=True)
         msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
                                                           serialized_taskunit,
                                                           address)
@@ -173,7 +173,7 @@ class Messenger(object):
         '''
         Send the result of running taskunit.
         '''
-        serialized_result = tu.serialize(include_attrs=attrs)
+        serialized_result = tu.serialize(include_attrs=attrs, json_encode=True)
         MSG_TASKUNIT_RESULT= message.Message.MSG_TASKUNIT_RESULT
         msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
                                                           serialized_result,

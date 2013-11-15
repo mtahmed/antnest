@@ -85,7 +85,7 @@ class Serializable:
 
         return source
 
-    def serialize(self, include_attrs=[], exclude_attrs=[]):
+    def serialize(self, include_attrs=[], exclude_attrs=[], json_encode=False):
         '''Serialize this object.
 
         If both include_attrs and exclude_attrs is empty, all the attributes of
@@ -100,6 +100,8 @@ class Serializable:
         :type include_attrs: list
         :param exclude_attrs: A list of names of attributes to NOT serialize.
         :type exclude_attrs: list
+        :param json_encode: Encode the result as json string if True.
+        :type json_encode: True or False
         :returns: A serialized representation of this object.
         :rtype: str
         '''
@@ -133,12 +135,10 @@ class Serializable:
             for var, value in self.get_serializables().items():
                 attr_dict[var] = value
 
-        # Finally, dump the json for the whole dict.
-        import pprint
-        pprint.pprint({'class': self.__class__.__name__,
-                       'attrs': attr_dict})
-        serialized = json.dumps({'class': self.__class__.__name__,
-                                 'attrs': attr_dict})
+        serialized = {'class': self.__module__ + '.' + self.__class__.__name__,
+                      'attrs': attr_dict}
+        if json_encode:
+            return json.dumps(serialized)
 
         return serialized
 
@@ -158,24 +158,48 @@ class Serializable:
 
         :param cls: The class to which to deserialize the string to.
         :type cls: class
-        :param serialized_attrs: The serialized string to be deserialized.
+        :param serialized: JSON or it's string version.
         :returns: An instance of ``cls`` representing the ``serialized`` string.
         :rtype: instance of ``cls``
         '''
         cls_name = cls.__name__
-        serialized = json.loads(serialized)
+        if isinstance(serialized, str):
+            serialized = json.loads(serialized)
         serialized_attrs = serialized['attrs']
-        # Get the list of mandatory arguments to initialize this class.
+
+        # If there are other serialized objects embedded in this one, then
+        # deserliaze them as well.
+        # For deserialization, first check that the module is available in our
+        # scope. If not, try to import it.
+        for key, val in serialized_attrs.items():
+            if isinstance(val, dict) and 'class' in val.keys():
+                subclass_module, subclass = (val['class'].rsplit('.', 1))
+                if subclass not in globals():
+                    pkg = __import__(subclass_module, globals(), locals(),
+                                     [subclass], 0)
+                    globals()[subclass] = getattr(pkg, subclass)
+                val = globals()[subclass].deserialize(val)
+                serialized_attrs[key] = val
+        # Get the list of arguments to init.
         argspec = inspect.getargspec(cls.__init__)
-        num_optional_args = len(argspec.defaults)
         args = argspec.args
-        mandatory_args = args[1:len(args) - num_optional_args]
+        args_defaults = argspec.defaults
+        len_args = 0 if args is None else len(args)
+        len_args_defaults = 0 if args_defaults is None else len(args_defaults)
+        num_mandatory_args = len_args - len_args_defaults
+        serialized_attrs_keys = serialized_attrs.keys()
+        mandatory_args = []
+        for index in range(1, num_mandatory_args):
+            mandatory_args.append(serialized_attrs[args[index]])
+        optional_args = {}
+        for index in range(num_mandatory_args, len_args):
+            optional_args[args[index]] = serialized_attrs[args[index]]
         # Execute any functions so that they are defined in local scope.
         # All functions/methods start with 'def ' string.
         # Also "cache" all the functions. This allows us to implement proper
         # caching (TODO) and also allows us to get the source for functions.
         for key, val in serialized_attrs.items():
-            if val.startswith('def '):
+            if isinstance(val, str) and val.startswith('def '):
                 # The filename for the cached source is:
                 # <cls_name>_<method_name>_<source_md5_hash>.py
                 m = hashlib.md5()
@@ -187,22 +211,17 @@ class Serializable:
                 f.close()
                 pkg = __import__('cache', globals(), locals(), [fname[:-3]], 0)
                 globals()[key] = getattr(getattr(pkg, fname[:-3]), key)
-        mandatory_args_vals = [serialized_attrs[arg] for arg in mandatory_args]
-        # Now initialize the object with the mandatory arguments.
-        deserialized = cls(*mandatory_args_vals)
+        # Now initialize the object with the provided init args.
+        deserialized = cls(*mandatory_args, **optional_args)
         # Now add all the attributes that aren't mandatory arguments to __init__
         # to the deserialized object.
+        init_args = mandatory_args + list(optional_args.keys())
         for key, val in serialized_attrs.items():
-            if key in mandatory_args:
+            if key in init_args:
                 continue
             # If it's a method, we need to make a bound method to deserialized.
             if val.startswith('def '):
                 val = types.MethodType(globals()[key], deserialized)
-            # If it's another serialized object embedded in this one, then
-            # deserliaze it as well.
-            if isinstance(val, dict):
-                if 'class' in val.keys:
-                    val = globals()[val['class']].deserialize(val['attrs'])
             # Now add the attribute to the deserialized object.
             setattr(deserialized, key, val)
 
