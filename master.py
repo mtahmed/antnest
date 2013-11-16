@@ -87,8 +87,9 @@ class Master(node.LocalNode):
                 for tu in j.splitter.split(j.input_data, j.processor):
                     # The split method only fills in the data and the processor.
                     # So we need to manually fill the rest.
-                    taskunit_id = taskunit.compute_taskunit_id(tu.data,
-                                                               inspect.getsource(tu.processor))
+                    processor_source = inspect.get_source(tu.processor)
+                    taskunit_id = taskunit.TaskUnit.compute_id(tu.data,
+                                                               processor_source)
                     tu.id = taskunit_id
                     tu.job_id = j.id
 

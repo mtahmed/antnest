@@ -7,43 +7,6 @@ import serialize
 import taskunit
 
 
-def compute_job_id(input_data, processor_code, split_code, combine_code):
-    '''
-    Compute the job_id.
-
-    The job_id is the MD5 hash of the concatenation of the job's data,
-    the processor_code, split method's code, combine_method's code.
-    '''
-    m = hashlib.md5()
-    if isinstance(input_data, bytes):
-        input_data_bytes = input_data
-    else:
-        input_data_bytes = bytes(input_data, 'UTF-8')
-
-    if isinstance(processor_code, bytes):
-        processor_code_bytes = processor_code
-    else:
-        processor_code_bytes = bytes(processor_code, 'UTF-8')
-
-    if isinstance(split_code, bytes):
-        split_code_bytes = split_code
-    else:
-        split_code_bytes = bytes(split_code, 'UTF-8')
-
-    if isinstance(combine_code, bytes):
-        combine_code_bytes = combine_code
-    else:
-        combine_code_bytes = bytes(combine_code, 'UTF-8')
-
-    hashable = (input_data_bytes +
-                processor_code_bytes +
-                split_code_bytes +
-                combine_code_bytes)
-    m.update(hashable)
-
-    return m.hexdigest()
-
-
 class Job(serialize.Serializable):
     '''
     An instance of this class represents a job to be run on a distributed
@@ -69,7 +32,7 @@ class Job(serialize.Serializable):
         to processor some given data into the required result.
         '''
         super().__init__(recursive_serialize=True)
-        self.noserialize += ['taskunits']
+        self.noserialize += ['taskunits', 'compute_id']
         self.id = id
 
         self.__class__.processor = processor
@@ -81,6 +44,42 @@ class Job(serialize.Serializable):
 
         # Map of taskunit ids to TaskUnits.
         self.taskunits = {}
+
+    @staticmethod
+    def compute_id(input_data, processor_code, split_code, combine_code):
+        '''Compute the job_id.
+
+        The job_id is the MD5 hash of the concatenation of the job's data,
+        the processor_code, split method's code, combine_method's code.
+        '''
+        m = hashlib.md5()
+        if isinstance(input_data, bytes):
+            input_data_bytes = input_data
+        else:
+            input_data_bytes = bytes(input_data, 'UTF-8')
+
+        if isinstance(processor_code, bytes):
+            processor_code_bytes = processor_code
+        else:
+            processor_code_bytes = bytes(processor_code, 'UTF-8')
+
+        if isinstance(split_code, bytes):
+            split_code_bytes = split_code
+        else:
+            split_code_bytes = bytes(split_code, 'UTF-8')
+
+        if isinstance(combine_code, bytes):
+            combine_code_bytes = combine_code
+        else:
+            combine_code_bytes = bytes(combine_code, 'UTF-8')
+
+        hashable = (input_data_bytes +
+                    processor_code_bytes +
+                    split_code_bytes +
+                    combine_code_bytes)
+        m.update(hashable)
+
+        return m.hexdigest()
 
 
 class Splitter(serialize.Serializable):
