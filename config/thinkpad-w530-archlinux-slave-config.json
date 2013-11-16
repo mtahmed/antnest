@@ -1,0 +1,8 @@
+{
+  "masters": [
+    {
+      "ip": "192.168.0.102",
+      "hostname": "thinkpad-w530-archlinux"
+    }
+  ]
+}
