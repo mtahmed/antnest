@@ -8,28 +8,19 @@ import taskunit
 
 
 class Job(serialize.Serializable):
-    '''
+    '''Represents a job to be handled by a master node.
+
     An instance of this class represents a job to be run on a distributed
     system cluster. The job defines a splitter, a combiner, the input to the
     job, the processor for the taskunits.
     '''
-    def __init__(self,
-                 id=None,
-                 input_data=None,
-                 processor=None,
-                 splitter=None,
+    def __init__(self, id=None, input_data=None, processor=None, splitter=None,
                  combiner=None):
         '''
         :param input_data: An elementary type.
-
-        :param splitter: An instance of Splitter. If None provided, an
-        instance of the default splitter is used.
-
-        :param combiner: An instance of Combiner. If None provided, an
-        instance of the default combiner is used.
-
-        :param processor: A function which every taskunit needs to be able
-        to processor some given data into the required result.
+        :param splitter: An instance of Splitter. Default used if None.
+        :param combiner: An instance of Combiner. Default used if None.
+        :param processor: A function which processes input to a TaskUnit.
         '''
         super().__init__(recursive_serialize=True)
         self.noserialize += ['taskunits', 'compute_id']
@@ -51,6 +42,11 @@ class Job(serialize.Serializable):
 
         The job_id is the MD5 hash of the concatenation of the job's data,
         the processor_code, split method's code, combine_method's code.
+
+        :param processor_code: source code for processor method
+        :param split_code: source code for the split method of the splitter
+        :param combine_code: source code for the combine method of the combiner
+        :returns: MD5 hex digest
         '''
         m = hashlib.md5()
         if isinstance(input_data, bytes):
@@ -73,9 +69,7 @@ class Job(serialize.Serializable):
         else:
             combine_code_bytes = bytes(combine_code, 'UTF-8')
 
-        hashable = (input_data_bytes +
-                    processor_code_bytes +
-                    split_code_bytes +
+        hashable = (input_data_bytes + processor_code_bytes + split_code_bytes +
                     combine_code_bytes)
         m.update(hashable)
 
@@ -83,9 +77,8 @@ class Job(serialize.Serializable):
 
 
 class Splitter(serialize.Serializable):
-    '''
-    An instance of this class represents a splitter used by a master to "split"
-    a job into smaller task units to be assigned to the slaves.
+    '''Represents a splitter used by master to split jobs.
+
     The users of the system can define their own splitters to be used by the
     master.
     '''
@@ -94,8 +87,7 @@ class Splitter(serialize.Serializable):
         self.noserialize += ['set_split_method']
 
     def set_split_method(self, split_method):
-        '''
-        Set the method to be used to split a job into taskunits.
+        '''Set the method to be used to split a job into taskunits.
 
         :param split_method: The new method to be used instead of the default
         split method below.
@@ -103,16 +95,17 @@ class Splitter(serialize.Serializable):
         self.__class__.split = split_method
 
     def split(self, input_data, processor):
-        '''
-        This method generates taskunits given an input file and the number of
-        slaves to generate the taskunits for. The input_data is split at
-        newlines and one taskunit is created for each line.
+        '''Generate splits (taskunits) given an input file and a processor.
 
-        This method can be overwritten if the users of the system decides to
-        use their own splitter.
+        The input_data is split at newlines and one taskunit is created for each
+        line.
 
-        :param processor: The processor for each "split". Each split is
-        basically a taskunit.
+        This method can be overwritten if the user of the system decides to use
+        their own splitter.
+
+        :param input_data: The data to work with.
+        :param processor: The processor for each generated taskunit.
+        :generates: TaskUnit
         '''
         input_lines = input_data.split('\n')
         for input_line in input_lines:
@@ -121,9 +114,7 @@ class Splitter(serialize.Serializable):
 
 
 class Combiner(serialize.Serializable):
-    '''
-    An instance of this class represents a combiner used by a master to
-    combine the results from taskunits.
+    '''Represents a combiner used by a master to combine TaskUnit results.
 
     The users of the system can define their own combiners to be used by the
     master.
@@ -134,14 +125,12 @@ class Combiner(serialize.Serializable):
         self.taskunits = []
 
     def set_combine_method(self, combine_method):
-        '''
-        Set the method to be used to combine the results from taskunits.
+        '''Set the method to be used to combine the results from taskunits.
         '''
         self.__class__.combine = combine_method
 
     def add_taskunits(self, tu):
-        '''
-        Add a taskunit to combine.
+        '''Add a taskunit to combine.
 
         When all the taskunits are available (determined by the master),
         the combine() method needs to called to actually combine the results.
@@ -149,9 +138,7 @@ class Combiner(serialize.Serializable):
         self.taskunits.extend(tu)
 
     def combine(self):
-        '''
-        This method takes as input a list of taskunits and combines their
-        results into the final result.
+        '''Combine all the added TaskUnit results.
 
         This method just uses the "sum" operator to combine all the results
         and then dumps the results as a JSON string to the file
