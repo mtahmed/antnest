@@ -72,3 +72,7 @@ The jobs are, by convention, defined in `jobs/` directory as python files.
 
 - Add license info.
 - Testing
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/mtahmed/antnest/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
