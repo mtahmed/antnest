@@ -1,9 +1,9 @@
 # Standard imports
-import types
+import hashlib
 import inspect
 import json
 import os
-import hashlib
+import types
 
 
 class Serializable:

@@ -1,8 +1,7 @@
 # Standard imports
 import argparse
-import socket
-import sys
 import os
+import sys
 
 # Set environment variable.
 sys.path.append(os.getcwd())

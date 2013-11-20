@@ -1,12 +1,12 @@
 # Standard imports
-import time
 import select
 import socket
+import time
 import threading
 
 # Custom imports
-import message
 import job
+import message
 import taskunit
 import utils.logger
 

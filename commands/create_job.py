@@ -1,17 +1,17 @@
 # Standard imports
 import argparse
-import socket
-import time
-import sys
 import os
+import socket
+import sys
+import time
 
 # Set environment variable.
 sys.path.append(os.getcwd())
 
 # Custom imports
+from job import Job, Splitter, Combiner
 import messenger
 import message
-from job import Job, Splitter, Combiner
 
 def enqueue_job(jobpath, dest_port):
     # Bind to some other port. Not to the main 33310.

@@ -1,15 +1,15 @@
 # Standard imports
+import inspect
 import json
 import time
-import inspect
 
 # Custom imports
-import node
+import job
 import messenger
 import message
-import taskunit
-import job
+import node
 import schedule
+import taskunit
 
 
 class Master(node.LocalNode):

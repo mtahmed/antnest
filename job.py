@@ -1,6 +1,6 @@
 # Standard imports
-import json
 import hashlib
+import json
 
 # Custom imports
 import serialize

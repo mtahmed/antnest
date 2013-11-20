@@ -1,15 +1,15 @@
 # Standard imports
 import argparse
+import os
 import socket
 import sys
-import os
 
 # Set environment variable.
 sys.path.append(os.getcwd())
 
 # Custom imports
-import slave
 import messenger
+import slave
 
 def start_slave(port):
     # Create a new Slave instance. Note that the conditions to run a slave on this

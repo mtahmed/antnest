@@ -1,6 +1,6 @@
 # Standard imports
-import struct
 import hashlib
+import struct
 
 
 def compute_msg_id(msg_payload, msg_type, dest_address):
