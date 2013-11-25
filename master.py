@@ -13,18 +13,13 @@ import taskunit
 
 
 class Master(node.LocalNode):
+    '''An instance of this class represents a master node.
+
+    A master node assigns work to its slaves after the job has been split up
+    into work units. It then combines the results into the final expected result
+    when it gets back the "intermediate results" from the slaves.
     '''
-    An instance of this class represents a master object who can assign work to
-    its slaves after the job has been split up into work units.
-    It then combines the results into the final expected result when it gets
-    back the "intermediate results" from the slaves.
-    '''
-    def __init__(self, ip=None):
-        '''
-        FIXME: This param is unused for now. Maybe in the future we will need it
-               in case we need to specify which interface to use.
-        :param ip: Dot-delimited string representation of the ip of this node.
-        '''
+    def __init__(self):
         super().__init__()
 
         self.pending_jobs = []
@@ -35,33 +30,46 @@ class Master(node.LocalNode):
         # A map of job_ids to Jobs.
         self.jobs = {}
 
-    def process_job(self, new_job):
-        '''TODO: MA: Implement this.
-        This method takes a job as input and "processes" it in the sense
-        that it generates TaskUnits from the Job and sends them off to the
-        "right" Slaves to be processed.
-        It then collects the results from our taskunits queue and combines
-        them to get the final result.
-        It then writes the results to a file and returns.
-        '''
-        for new_taskunit in new_job.splitter.split:
-            print(new_taskunit)
+    def process_job(self, job):
+        '''Process a job received from the user.
 
-    def get_node_address(self, node):
+        It generates TaskUnits from the Job and sends them off to the Slaves to
+        be processed. It then collects the results and combines them to get the
+        final result. It then writes the results to a file and returns.
         '''
-        Get the address for a remote node.
-        '''
-        return (node.address)
+        self.jobs[j.id] = j
+        for tu in j.splitter.split(j.input_data, j.processor):
+            # The split method only fills in the data and the processor.
+            # So we need to manually fill the rest.
+            processor_source = inspect.get_source(tu.processor)
+            taskunit_id = taskunit.TaskUnit.compute_id(tu.data,
+                                                        processor_source)
+            tu.id = taskunit_id
+            tu.job_id = j.id
+
+            # Store this taskunit in the job's taskunit map.
+            j.taskunits[tu.id] = tu
+
+            # Now schedule this task unit.
+            next_slave = self.scheduler.schedule_job(tu)
+            slave_address = self.slave_nodes[next_slave].address
+
+            # Attributes to send to the slave.
+            attrs = ['id', 'job_id', 'data', 'processor._code',
+                        'retries']
+            self.messenger.send_taskunit(tu, slave_address, attrs)
+        j.pending_taskunits = len(j.taskunits)
+
+        return
 
     def worker(self):
-        '''
-        This method keeps running for the life of the Slave. It asks for new
-        messages from this Slave's messenger. It then appropriately handles
-        the message. Some of the messages are TaskUnits return from the slaves
-        after they have been processed.
+        '''This method keeps running for the life of the Slave.
 
-        Other messages maybe status updates from the slaves or requests to send
-        more work etc.
+        It asks for new messages from this Slave's messenger. It then
+        appropriately handles the message.
+
+        Messages could be new jobs, processed task units from slaves, status
+        updates from slaves etc.
         '''
         while True:
             address, msg = self.messenger.receive(return_payload=False)
@@ -83,28 +91,7 @@ class Master(node.LocalNode):
                 print("MASTER: Got a new job.")
                 object_dict = msg.msg_payload.decode('utf-8')
                 j = job.Job.deserialize(object_dict)
-                self.jobs[j.id] = j
-                for tu in j.splitter.split(j.input_data, j.processor):
-                    # The split method only fills in the data and the processor.
-                    # So we need to manually fill the rest.
-                    processor_source = inspect.get_source(tu.processor)
-                    taskunit_id = taskunit.TaskUnit.compute_id(tu.data,
-                                                               processor_source)
-                    tu.id = taskunit_id
-                    tu.job_id = j.id
-
-                    # Store this taskunit in the job's taskunit map.
-                    j.taskunits[tu.id] = tu
-
-                    # Now schedule this task unit.
-                    next_slave = self.scheduler.schedule_job(tu)
-                    slave_address = self.slave_nodes[next_slave].address
-
-                    # Attributes to send to the slave.
-                    attrs = ['id', 'job_id', 'data', 'processor._code',
-                             'retries']
-                    self.messenger.send_taskunit(tu, slave_address, attrs)
-                j.pending_taskunits = len(j.taskunits)
+                self.process_job(j)
             elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
                 # TODO: MA Handle failed tasks.
                 print("MASTER: Got a taskunit result back.")
