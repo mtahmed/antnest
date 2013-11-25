@@ -2,9 +2,7 @@ import json
 import socket
 
 class Node(object):
-    '''
-    An instance of this class represents a machine in our distributed system
-    cluster.
+    '''Represents a machine in our distributed system cluster.
     '''
     # A node can be in one of the following states:
     STATE_UP       = 0  # Configured but not ready to accept any messages.
@@ -27,51 +25,40 @@ class Node(object):
         # Set my state as UP.
         self.set_state(self.STATE_UP)
 
-    def get_self_hostname():
-        '''
-        Get the hostname of the machine that this distributed system is running
-        on.
-        '''
-        return self.hostname
-
     def get_ip(self):
-        '''
-        Get the ip of the Node that this object represents.
+        '''Get the ip of this node.
         '''
         return self.address[0]
 
     def get_port(self):
-        '''
-        Get the port of the node that this object represents.
+        '''Get the port being used by this node.
         '''
         return self.address[1]
 
     def get_hostname(self):
-        '''
-        Get te hostname of the Node that this object represents.
+        '''Get the hostname of this node.
         '''
         return self.hostname
 
     def set_state(self, state):
-        '''
-        Always use this method to set the state of a Node. This does some
-        checking to make sure that the state transition is a valid transition.
+        '''Set the state of a Node.
+
+        This method does some checking to make sure that the state transition
+        is a valid transition.
         '''
         if state not in self.VALID_STATES:
             raise Exception("Invalid state %s" % str(state))
-        self.state = state
+        self._state = state
         return
 
     def get_state(self):
+        '''Ghe state of this node.
         '''
-        Return the state of this node.
-        '''
-        return self.state
+        return self._state
 
 
 class RemoteNode(Node):
-    '''
-    This class represents a remote node.
+    '''Represents a remote node.
 
     It is to be used by e.g. a master node to keep track of a its slave nodes.
     '''
@@ -80,11 +67,10 @@ class RemoteNode(Node):
 
 
 class LocalNode(Node):
-    '''
-    This class represents a local node.
+    '''Represents a local node.
 
-    It is to be used on the machine that this class is instantiated to
-    represent itself. A LocalNode must have a config_path defined.
+    It is to be used on the machine that this class is instantiated to represent
+    itself. A LocalNode must have a config_path defined.
     '''
     def __init__(self, config_path=None):
         ip = socket.gethostbyname(socket.getfqdn())
