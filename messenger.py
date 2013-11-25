@@ -221,7 +221,7 @@ class Messenger(object):
             msg_frags.append(msg_payload)
 
         # Compute the message id.
-        msg_id = message.compute_msg_id(msg_payload, msg_type, address)
+        msg_id = message.Message.compute_msg_id(msg_payload, msg_type, address)
 
         packed_messages = []
         for msg_frag_id, msg_frag in enumerate(msg_frags):

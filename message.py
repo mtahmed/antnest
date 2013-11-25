@@ -3,29 +3,8 @@ import hashlib
 import struct
 
 
-def compute_msg_id(msg_payload, msg_type, dest_address):
-    '''
-    Compute the message id which is a 16-byte md5 hash of the msg_payload.
-    '''
-    m = hashlib.md5()
-
-    if isinstance(msg_payload, bytes):
-        msg_payload_bytes = msg_payload
-    else:
-        msg_payload_bytes = bytes(msg_payload, 'UTF-8')
-
-    hashable = (bytes(str(msg_type), 'UTF-8') +
-                bytes(dest_address[0], 'UTF-8') +
-                bytes(str(dest_address[1]), 'UTF-8') +
-                msg_payload_bytes)
-    m.update(hashable)
-
-    return m.digest()
-
-
 class MessageTracker(object):
-    '''
-    This class is used to track if a message has been sent out.
+    '''Represents a tracker used to track the status of a message.
     '''
     MSG_QUEUED = 0
     MSG_SENT   = 1
@@ -59,13 +38,8 @@ class MessageTracker(object):
         self.isinuse = False
 
 
-def get_msg_id(self, packed_msg):
-    return Message(packed_msg=packed_msg).msg_id
-
-
 class Message(object):
-    '''
-    An instance of this class represents a message that can be sent over the network.
+    '''Represents a message that can be sent over the network.
     '''
     # Constants
     MSG_HEADER_SIZE = 21
@@ -148,3 +122,25 @@ class Message(object):
         else:
             raise Exception("Either packed_message or msg_payload must be "
                             "given")
+
+        return
+
+
+    @staticmethod
+    def compute_msg_id(msg_payload, msg_type, dest_address):
+        '''Compute the message id which is a 16-byte md5 hash.
+        '''
+        m = hashlib.md5()
+
+        if isinstance(msg_payload, bytes):
+            msg_payload_bytes = msg_payload
+        else:
+            msg_payload_bytes = bytes(msg_payload, 'UTF-8')
+
+        hashable = (bytes(str(msg_type), 'UTF-8') +
+                    bytes(dest_address[0], 'UTF-8') +
+                    bytes(str(dest_address[1]), 'UTF-8') +
+                    msg_payload_bytes)
+        m.update(hashable)
+
+        return m.digest()
