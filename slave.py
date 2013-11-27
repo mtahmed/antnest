@@ -11,21 +11,18 @@ import taskunit
 
 
 class Slave(node.LocalNode):
-    """
-    This class defines a slave worker (a standalone machine)
-    which can accept work units and process and send the results
-    back.
-    """
+    '''An instance of this class represents a slave node.
 
+    A slave node can accept work units from a master and process and send the
+    results back.
+    '''
     def __init__(self, port, ip=None):
-        """
-        FIXME: This param is unused for now. Maybe in the future we will need it
-               in case we need to specify which interface to use.
-        :param ip: Dot-delimited string representation of the ip of this Node.
-        """
+        '''
+        :param port: port number to run this slave on.
+        '''
         config_filename = '%s-slave-config.json' % socket.gethostname()
         config_path = os.path.join('config', config_filename)
-        # __init__ Node
+
         super().__init__(config_path=config_path)
 
         self.task_q = []
@@ -58,8 +55,7 @@ class Slave(node.LocalNode):
         return
 
     def associate(self):
-        '''
-        Associate with the master.
+        '''Associate with the master(s).
 
         This involves sending a status update to the master.
         '''
@@ -88,7 +84,8 @@ class Slave(node.LocalNode):
         return
 
     def worker(self):
-        """
+        '''The main worker loop.
+
         This method keeps running for the life of Slave. It asks for new
         messages from this Slave's messenger. It then appropriately handles the
         message. Some of the messages are TaskUnits that need to be run.
@@ -97,7 +94,7 @@ class Slave(node.LocalNode):
         executes the run() method of the TaskUnit and waits for it to complete.
         It then sets the status of the TaskUnit appropriately and sends the it
         back to the master through the messenger.
-        """
+        '''
         while True:
             address, msg = self.messenger.receive(return_payload=False)
             if msg is None:
@@ -106,6 +103,6 @@ class Slave(node.LocalNode):
             deserialized_msg = self.messenger.deserialize_message_payload(msg)
             if msg.msg_type == message.Message.MSG_TASKUNIT:
                 tu = deserialized_msg
-                # TODO MA Make this run in a new thread instead of directly here.
+                # TODO(mtahmed): Run this in a new thread? Maybe? Investigate.
                 tu.run()
                 self.messenger.send_taskunit_result(tu, address)

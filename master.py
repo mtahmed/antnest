@@ -19,14 +19,19 @@ class Master(node.LocalNode):
     into work units. It then combines the results into the final expected result
     when it gets back the "intermediate results" from the slaves.
     '''
-    def __init__(self):
+    def __init__(self, port):
+        '''
+        :param port: port number to run this master on.
+        '''
         super().__init__()
+
+        self.config['port'] = port
 
         self.pending_jobs = []
         self.completed_jobs = []
         self.slave_nodes = []
         self.scheduler = schedule.MinMakespan()
-        self.messenger = messenger.Messenger()
+        self.messenger = messenger.Messenger(port=self.config['port'])
         # A map of job_ids to Jobs.
         self.jobs = {}
 

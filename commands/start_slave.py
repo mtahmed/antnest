@@ -1,7 +1,6 @@
 # Standard imports
 import argparse
 import os
-import socket
 import sys
 
 # Set environment variable.
@@ -12,12 +11,9 @@ import messenger
 import slave
 
 def start_slave(port):
-    # Create a new Slave instance. Note that the conditions to run a slave on this
-    # Node must be met before this command is called.
-    # One of the conditions is the the appropriate config file for this node
-    # be present in the config directory.
+    '''Create and start a new slave.
+    '''
     this_node = slave.Slave(port)
-    # Now call the worker method of this Slave.
     this_node.worker()
 
 

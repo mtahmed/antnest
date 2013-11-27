@@ -8,18 +8,22 @@ sys.path.append(os.getcwd())
 
 # Custom imports
 import master
+import messenger
 
-def start_master():
-    # Create a new Master instance. Note that the conditions to run a master on this
-    # Node must be met before this command is called.
-    this_node = master.Master()
-    # Now call the worker method of this Slave.
+def start_master(port):
+    '''Create and start a new master.
+    '''
+    this_node = master.Master(port)
     this_node.worker()
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Starts this Node as an instance'
                                                  'of a slave Node.')
+    parser.add_argument('--port', '-p', type=int,
+                        help='the port the master should use')
+
 
     args = parser.parse_args()
-    start_master()
+    port = args.port if args.port else messenger.Messenger.DEFAULT_PORT
+    start_master(port)
