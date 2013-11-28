@@ -61,21 +61,16 @@ class TaskUnit(serialize.Serializable):
               'REFUSED',
               'COMPLETED')
 
-    def __init__(self,
-                 id=None,
-                 job_id=None,
-                 data=None,
-                 processor=None,
-                 retries=0,
-                 state='DEFINED'):
+    def __init__(self, id=None, job_id=None, data=None, processor=None,
+                 retries=0, state='DEFINED'):
         '''
-        TODO
-        :type data: any "serializable" object/value
+        :param id: The TaskUnit id. (see ``compute_id`` method)
+        :param job_id: The id of the Job this TaskUnit is part of.
         :param data: The data to run the processor on.
-
-        :type processor: function
         :param processor: A function that takes data and processes it to produce
         the results required.
+        :param retries: Number of retries after failures allowed.
+        :param state: The state of the TaskUnit. (see ``STATES``)
         '''
         super().__init__()
         self.noserialize += ['STATES', 'set_processor', 'setstate', 'run',
@@ -93,19 +88,21 @@ class TaskUnit(serialize.Serializable):
         self.result = None
 
     def set_processor(self, processor):
+        '''Set the processor method for this TaskUnit.
+        '''
         self.__class__.processor = processor
 
     def setstate(self, state):
-        '''
-        Set the state of this TaskUnit.
+        '''Set the state of this TaskUnit.
         '''
         if state not in self.STATES:
-            raise Exception('Unknown statue: ' + state)
+            raise ValueError('Unknown state: %s' % state)
         else:
             self.state = state
 
     def run(self):
-        '''
+        '''Run the the TaskUnit.
+
         This method is called by the Slave node to "execute" the task unit to
         get the desired results into the task unit.
         '''
@@ -122,13 +119,11 @@ class TaskUnit(serialize.Serializable):
                 self.retries -= 1
 
     def processor(self):
-        '''
-        This method will be derived from the method provided by the user for
-        the processor.
-        This method defines how the data will be processed.
+        '''The function that is applied to the data to produce results.
         '''
         pass
 
+    @staticmethod
     def compute_id(data, processor_code):
         '''Compute the taskunit_id.
 
