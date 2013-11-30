@@ -3,5 +3,5 @@ __pycache__
 *.pyc
 *.pyo
 .*.sw?
-cache/*.py
-cache/__pycache__
+cache_store/*.py
+cache_store/__pycache__

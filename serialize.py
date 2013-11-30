@@ -206,10 +206,11 @@ class Serializable:
                 m.update(val.encode('utf-8'))
                 md5_hash = m.hexdigest()
                 fname = '%s_%s_%s.py' % (cls_name.lower(), key, md5_hash)
-                f = open(os.path.join('cache', fname), mode='w')
+                f = open(os.path.join('cache_store', fname), mode='w')
                 f.write(val)
                 f.close()
-                pkg = __import__('cache', globals(), locals(), [fname[:-3]], 0)
+                pkg = __import__('cache_store', globals(), locals(),
+                                 [fname[:-3]], 0)
                 globals()[key] = getattr(getattr(pkg, fname[:-3]), key)
         # Now initialize the object with the provided init args.
         deserialized = cls(*mandatory_args, **optional_args)
