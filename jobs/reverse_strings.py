@@ -2,6 +2,7 @@ def processor(self, string):
     return string[::-1]
 
 def split(self, input_data, processor):
+    import taskunit
     input_lines = input_data.split('\n')
     for input_line in input_lines:
         yield taskunit.TaskUnit(data=input_line, processor=processor)
