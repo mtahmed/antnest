@@ -18,7 +18,7 @@ class MessageTracker(object):
         self.msg_id = msg_id
         self.state = MessageTracker.MSG_QUEUED
         # Says whether the this tracker is in use.
-        self.isinuse = False
+        self.isinuse = isinuse
 
     def set_state(self, state):
         if not state in MessageTracker.VALID_STATES:
@@ -63,14 +63,8 @@ class Message(object):
                        MSG_TASKUNIT_RESULT,
                        MSG_JOB]
 
-    def __init__(self,
-                 packed_msg=None,
-                 msg_id=None,
-                 msg_meta1=None,
-                 msg_meta2=None,
-                 msg_meta3=None,
-                 msg_type=None,
-                 msg_flags=None,
+    def __init__(self, packed_msg=None, msg_id=None, msg_meta1=None,
+                 msg_meta2=None, msg_meta3=None, msg_type=None, msg_flags=None,
                  msg_payload=None):
 
         # If packed_msg is provided, then we need to unpack.
@@ -112,12 +106,9 @@ class Message(object):
             self.msg_flags   = msg_flags
             self.payload_size= len(msg_payload)
             self.packed_msg  = struct.pack(Message.MSG_FORMAT % self.payload_size,
-                                           self.msg_id,
-                                           self.msg_meta1,
-                                           self.msg_meta2,
-                                           self.msg_meta3,
-                                           self.msg_type,
-                                           self.msg_flags,
+                                           self.msg_id, self.msg_meta1,
+                                           self.msg_meta2, self.msg_meta3,
+                                           self.msg_type, self.msg_flags,
                                            self.msg_payload)
         else:
             raise Exception("Either packed_message or msg_payload must be "
