@@ -35,7 +35,7 @@ class Master(node.LocalNode):
         # A map of job_ids to Jobs.
         self.jobs = {}
 
-    def process_job(self, job):
+    def process_job(self, j):
         '''Process a job received from the user.
 
         It generates TaskUnits from the Job and sends them off to the Slaves to
@@ -43,27 +43,28 @@ class Master(node.LocalNode):
         final result. It then writes the results to a file and returns.
         '''
         self.jobs[j.id] = j
+        j.pending_taskunits = 0
         for tu in j.splitter.split(j.input_data, j.processor):
             # The split method only fills in the data and the processor.
             # So we need to manually fill the rest.
-            processor_source = inspect.get_source(tu.processor)
+            processor_source = inspect.getsource(tu.processor)
             taskunit_id = taskunit.TaskUnit.compute_id(tu.data,
                                                         processor_source)
             tu.id = taskunit_id
             tu.job_id = j.id
+            tu.job_size = 1
 
             # Store this taskunit in the job's taskunit map.
             j.taskunits[tu.id] = tu
+            j.pending_taskunits += 1
 
             # Now schedule this task unit.
             next_slave = self.scheduler.schedule_job(tu)
             slave_address = self.slave_nodes[next_slave].address
 
             # Attributes to send to the slave.
-            attrs = ['id', 'job_id', 'data', 'processor._code',
-                        'retries']
-            self.messenger.send_taskunit(tu, slave_address, attrs)
-        j.pending_taskunits = len(j.taskunits)
+            attrs = ['id', 'data', 'retries', 'processor']
+            self.messenger.send_taskunit(tu, slave_address, attrs=attrs)
 
         return
 
@@ -100,7 +101,8 @@ class Master(node.LocalNode):
             elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
                 # TODO: MA Handle failed tasks.
                 print("MASTER: Got a taskunit result back.")
-                tu = deserialized_msg
+                object_dict = msg.msg_payload.decode('utf-8')
+                tu = taskunit.TaskUnit.deserialize(object_dict)
                 job_id = tu.job_id
                 j = self.jobs[job_id]
                 taskunit_id = tu.id
