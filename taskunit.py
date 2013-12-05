@@ -2,6 +2,7 @@
 import hashlib
 import inspect
 import serialize
+import types
 
 
 class TaskUnit(serialize.Serializable):
@@ -78,7 +79,8 @@ class TaskUnit(serialize.Serializable):
         self.id = id
         self.job_id = job_id
         self.data = data
-        self.__class__.processor = processor
+        if processor:
+            self.set_processor(processor)
         if retries >= 0:
             self.retries = retries
         else:
@@ -90,12 +92,14 @@ class TaskUnit(serialize.Serializable):
     def set_processor(self, processor):
         '''Set the processor method for this TaskUnit.
         '''
-        self.__class__.processor = processor
+        while inspect.ismethod(processor):
+            processor = processor.__func__
+        self.processor = types.MethodType(processor, self)
 
     def setstate(self, state):
         '''Set the state of this TaskUnit.
         '''
-        if state not in self.STATES:
+        if state not in TaskUnit.STATES:
             raise ValueError('Unknown state: %s' % state)
         else:
             self.state = state
