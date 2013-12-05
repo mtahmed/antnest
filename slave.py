@@ -100,9 +100,9 @@ class Slave(node.LocalNode):
             if msg is None:
                 time.sleep(2)
                 continue
-            deserialized_msg = self.messenger.deserialize_message_payload(msg)
             if msg.msg_type == message.Message.MSG_TASKUNIT:
-                tu = deserialized_msg
+                object_dict = msg.msg_payload.decode('utf-8')
+                tu = taskunit.TaskUnit.deserialize(object_dict)
                 # TODO(mtahmed): Run this in a new thread? Maybe? Investigate.
                 tu.run()
                 self.messenger.send_taskunit_result(tu, address)
