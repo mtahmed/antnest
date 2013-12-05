@@ -76,11 +76,12 @@ class LocalNode(Node):
         ip = socket.gethostbyname(socket.getfqdn())
         hostname = socket.gethostname()
 
+        super().__init__(hostname, ip)
+
+        self.config = dict()
         if config_path:
             try:
                 with open(config_path) as config_path_handler:
                     self.config = json.load(config_path_handler)
             except IOError:
                 raise Exception("Failed to load config file " + config_path)
-
-        super().__init__(hostname, ip)
