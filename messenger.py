@@ -150,8 +150,8 @@ class Messenger(object):
         if track:
             return tracker
 
-    def send_taskunit(self, tu, address, track=False, attrs=['taskunit_id',
-          'job_id', 'data', 'processor._code', 'retries', 'state', 'result']):
+    def send_taskunit(self, tu, address, track=False, attrs=['id', 'job_id',
+          'data', 'retries', 'state', 'result']):
         '''
         Send a taskunit to a remote node.
 
@@ -169,7 +169,7 @@ class Messenger(object):
             return tracker
 
     def send_taskunit_result(self, tu, address, track=False,
-          attrs=['taskunit_id', 'job_id', 'state', 'result']):
+          attrs=['id', 'job_id', 'state', 'result']):
         '''
         Send the result of running taskunit.
         '''
