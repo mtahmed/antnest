@@ -128,7 +128,7 @@ class Serializable:
         # Attribute dictionary.
         attr_dict = {}
         for var, value in serialize_vars.items():
-            attr_dict[var] = json.dumps(value)
+            attr_dict[var] = value
         for name, method in serialize_methods.items():
             attr_dict[name] = self.serialize_method(method)
         if self.recursive_serialize:
