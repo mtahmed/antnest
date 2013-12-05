@@ -360,7 +360,7 @@ class Messenger(object):
         messenger.logger.log("Receiver up!")
         while True:
             # Poll with timeout of 1.0 seconds.
-            poll_responses = poller.poll(1.0)
+            poll_responses = poller.poll()
             for fileno, event in poll_responses:
                 # We received something on our socket.
                 if event & select.EPOLLIN:
@@ -405,6 +405,3 @@ class Messenger(object):
                             del fragments_map[msg.msg_id]
                 else:
                     messenger.logger.log("Unexpected event on receiver socket.")
-            else:
-                # Sleep for 3.0 seconds if we didn't get any event this time.
-                time.sleep(3.0)
