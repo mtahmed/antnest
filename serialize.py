@@ -112,17 +112,17 @@ class Serializable:
             serialize_methods = all_methods
         elif include_attrs:
             serialize_vars = {var: value for
-                              var, value in all_vars
+                              var, value in all_vars.items()
                               if var in include_attrs}
             serialize_methods = {name: method for
-                                 name, method in all_methods
+                                 name, method in all_methods.items()
                                  if name in include_attrs}
         elif exclude_attrs:
             serialize_vars = {var: value for
-                              var, value in all_vars
+                              var, value in all_vars.items()
                               if var not in exclude_attrs}
             serialize_methods = {name: method for
-                                 name, method in all_methods
+                                 name, method in all_methods.items()
                                  if name not in exclude_attrs}
 
         # Attribute dictionary.
