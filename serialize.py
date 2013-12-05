@@ -188,12 +188,6 @@ class Serializable:
         len_args_defaults = 0 if args_defaults is None else len(args_defaults)
         num_mandatory_args = len_args - len_args_defaults
         serialized_attrs_keys = serialized_attrs.keys()
-        mandatory_args = []
-        for index in range(1, num_mandatory_args):
-            mandatory_args.append(serialized_attrs[args[index]])
-        optional_args = {}
-        for index in range(num_mandatory_args, len_args):
-            optional_args[args[index]] = serialized_attrs[args[index]]
         # Execute any functions so that they are defined in local scope.
         # All functions/methods start with 'def ' string.
         # Also "cache" all the functions. This allows us to implement proper
@@ -211,7 +205,16 @@ class Serializable:
                 f.close()
                 pkg = __import__('cache_store', globals(), locals(),
                                  [fname[:-3]], 0)
-                globals()[key] = getattr(getattr(pkg, fname[:-3]), key)
+                serialized_attrs[key] = getattr(getattr(pkg, fname[:-3]), key)
+        mandatory_args = []
+        for index in range(1, num_mandatory_args):
+            mandatory_args.append(serialized_attrs[args[index]])
+        optional_args = {}
+        for index in range(num_mandatory_args, len_args):
+            try:
+                optional_args[args[index]] = serialized_attrs[args[index]]
+            except KeyError:
+                pass
         # Now initialize the object with the provided init args.
         deserialized = cls(*mandatory_args, **optional_args)
         # Now add all the attributes that aren't mandatory arguments to __init__
@@ -221,8 +224,8 @@ class Serializable:
             if key in init_args:
                 continue
             # If it's a method, we need to make a bound method to deserialized.
-            if val.startswith('def '):
-                val = types.MethodType(globals()[key], deserialized)
+            if inspect.ismethod(val) or inspect.isfunction(val):
+                val = types.MethodType(serialized_attrs[key], deserialized)
             # Now add the attribute to the deserialized object.
             setattr(deserialized, key, val)
 
