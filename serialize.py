@@ -130,7 +130,13 @@ class Serializable:
         for var, value in serialize_vars.items():
             attr_dict[var] = value
         for name, method in serialize_methods.items():
-            attr_dict[name] = self.serialize_method(method)
+            # Try to serialize the method. If it fails, ignore it.
+            # XXX(mtahmed): This is needed for it to work with pypy
+            # FIXME(mtahmed): Find a better way to do get around this.
+            try:
+                attr_dict[name] = self.serialize_method(method)
+            except:
+                pass
         if self.recursive_serialize:
             for var, value in self.get_serializables().items():
                 attr_dict[var] = value
