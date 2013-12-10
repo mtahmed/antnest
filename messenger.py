@@ -1,7 +1,7 @@
 # Standard imports
+import collections
 import select
 import socket
-import time
 import threading
 
 # Custom imports
@@ -37,8 +37,10 @@ class Messenger(object):
         self.address_to_hostname = {}
         # Both inbound_queue and outbound_queue contain tuples of
         # (address, message) that are received or need to be sent out.
-        self.inbound_queue = []
-        self.outbound_queue = []
+        self.inbound_queue = collections.deque()
+        self.outbound_queue = collections.deque()
+        self.outbound_queue_sem = threading.Semaphore(value=0)
+        self.inbound_queue_sem = threading.Semaphore(value=0)
         # This dict is used to keep track of MessageTracker objects which can
         # be used to track message status.
         self.trackers = {}
@@ -72,31 +74,26 @@ class Messenger(object):
         self.address_to_hostname[address] = hostname
 
     def receive(self, return_payload=True):
-        '''
-        This method checks this messenger's inbound_queue and if its not empty,
-        it returns the next element from the queue.
+        '''Return the next message from the inbound_queue.
 
         :param return_payload: If True, the message payload is deserialized
-        and returned instead of the message itself.
+        and returned instead of the Message object itself.
         '''
-        if self.inbound_queue:
-            msg = self.inbound_queue[0]
-            self.inbound_queue = self.inbound_queue[1:]
+        self.inbound_queue_sem.acquire()
+        msg = self.inbound_queue.popleft()
 
-            if not return_payload:
-                return msg
+        if not return_payload:
+            return msg
 
-            msg_type = msg.msg_type
-            if msg_type == message.Message.MSG_STATUS:
-                return int(msg.msg_payload.decode('UTF-8'))
-            elif msg_type == message.Message.MSG_TASKUNIT:
-                return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
-            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
-                return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
-            elif msg_type == message.Message.MSG_JOB:
-                return job.Job.deserialize(msg.msg_payload.decode('UTF-8'))
-        else:
-            return (None, None)
+        msg_type = msg.msg_type
+        if msg_type == message.Message.MSG_STATUS:
+            return int(msg.msg_payload.decode('UTF-8'))
+        elif msg_type == message.Message.MSG_TASKUNIT:
+            return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+        elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+            return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+        elif msg_type == message.Message.MSG_JOB:
+            return job.Job.deserialize(msg.msg_payload.decode('UTF-8'))
 
     def send_status(self, status, address, track=False):
         '''
@@ -190,9 +187,9 @@ class Messenger(object):
         outbound_queue.
         NOTE: This method takes a list of messages and not a single message.
         '''
-        self.outbound_queue.extend([(address, message)
-                                    for message
-                                    in messages])
+        for message in messages:
+            self.outbound_queue.append((address, message))
+            self.outbound_queue_sem.release()
 
     ##### Message-specific methods.
     def delete_tracker(self, tracker):
@@ -308,11 +305,8 @@ class Messenger(object):
 
         messenger.logger.log("Sender up!")
         while True:
-            if len(messenger.outbound_queue) == 0:
-                time.sleep(3.0)
-                continue
-            else:
-                address, msg = messenger.outbound_queue[0]
+            messenger.outbound_queue_sem.acquire()
+            address, msg = messenger.outbound_queue.popleft()
 
             messenger.logger.log("Sending message to %s:%d" % address)
             # While the msg is still not sent...
@@ -323,7 +317,6 @@ class Messenger(object):
                     # If we can send...
                     if event & select.EPOLLOUT:
                         bytes_sent = messenger.socket.sendto(msg, address)
-                        messenger.outbound_queue = messenger.outbound_queue[1:]
                         # If we have a tracker for this msg, then we need to
                         # mark it as sent if this is the last frag for the msg
                         # being sent out.
@@ -339,9 +332,6 @@ class Messenger(object):
                         break
                     else:
                         messenger.logger.log("Unexpected event on sender socket.")
-                else:
-                    # Sleep for 0.5 seconds if we couldn't send out.
-                    time.sleep(0.5)
 
     @staticmethod
     def receiver(messenger):
@@ -400,6 +390,7 @@ class Messenger(object):
                                     messenger.delete_tracker(tracker)
                                 continue
                             messenger.inbound_queue.append((address, catted_msg))
+                            messenger.inbound_queue_sem.release()
                             # Send an ack now that we have received the msg.
                             messenger.send_ack(catted_msg, address)
                             del fragments_map[msg.msg_id]

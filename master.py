@@ -1,7 +1,6 @@
 # Standard imports
 import inspect
 import json
-import time
 
 # Custom imports
 import job
@@ -78,10 +77,8 @@ class Master(node.LocalNode):
         updates from slaves etc.
         '''
         while True:
+            # This blocks if inbound_queue in messenger empty.
             address, msg = self.messenger.receive(return_payload=False)
-            if msg is None:
-                time.sleep(2)
-                continue
 
             msg_type = msg.msg_type
             if msg_type == message.Message.MSG_STATUS:

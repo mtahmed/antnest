@@ -49,7 +49,7 @@ class Slave(node.LocalNode):
             self.messenger.register_destination(master_hostname,
                                                 (master_ip, master_port))
 
-        # When everything is setup, associate with the master.
+        # When everything is setup, associate with the master(s).
         self.associate()
 
         return
@@ -80,7 +80,7 @@ class Slave(node.LocalNode):
                     self.messenger.delete_tracker(tracker)
                     unacked_masters[index] = None
                     num_unacked_masters -= 1
-            time.sleep(10.0)
+            time.sleep(0.05)
         return
 
     def worker(self):
@@ -96,10 +96,9 @@ class Slave(node.LocalNode):
         back to the master through the messenger.
         '''
         while True:
+            # This blocks if inbound_queue in messenger empty.
             address, msg = self.messenger.receive(return_payload=False)
-            if msg is None:
-                time.sleep(2)
-                continue
+
             if msg.msg_type == message.Message.MSG_TASKUNIT:
                 object_dict = msg.msg_payload.decode('utf-8')
                 tu = taskunit.TaskUnit.deserialize(object_dict)
