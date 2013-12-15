@@ -3,13 +3,13 @@ Schedulers
 
 Each scheduler takes the number of machines, the speed for each machine,
 the set of jobs
-(in scheduling terminology, jobs) that are to be assigned to (scheduled on) that
-machine.
+(in scheduling terminology, jobs) that are to be assigned to (scheduled on)
+that machine.
 
 If the list of speeds is empty, it is assumed that the machines are identical.
 
-NOTE: This file uses the scheduling terminology, not consistent with the rest of
-      the system.
+NOTE: This file uses the scheduling terminology, not consistent with the rest
+      of the system.
 '''
 # Custom imports
 from utils.heap import Heap
@@ -43,12 +43,12 @@ class MinMakespan():
         # assignments[machine] = list of jobs assigned to machine
         self.assignments = [[] for _ in range(machines)]
         # A min-heap of the loads on the machines.
-        self.loads_heap = Heap([(i,0) for i in range(machines)],
+        self.loads_heap = Heap([(i, 0) for i in range(machines)],
                                key=lambda x: x[1])
 
         # Now schedule the jobs.
         for job in jobs:
-            machine = self.schedule_job(job)
+            self.schedule_job(job)
 
     def schedule_job(self, job):
         '''Schedule the job according to the current loads.
