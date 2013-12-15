@@ -31,10 +31,10 @@ class Serializable:
         '''
         return {var: getattr(self, var) for var in dir(self)
                 if not inspect.ismethod(getattr(self, var)) and
-                   not inspect.isfunction(getattr(self, var)) and
-                   not var.startswith('__') and
-                   not var in self.noserialize and
-                   not isinstance(getattr(self, var), Serializable)}
+                not inspect.isfunction(getattr(self, var)) and
+                not var.startswith('__') and
+                not var in self.noserialize and
+                not isinstance(getattr(self, var), Serializable)}
 
     def get_serializables(self):
         '''Get all the attributes of this class that inherit from Serialazble.
@@ -49,8 +49,8 @@ class Serializable:
     def get_methods(self):
         '''Get all the method attributes of this class.
 
-        NOTE: This only returns true methods, bound to the class. To add a bound
-        method to an object, look at ``types.MethodType``.
+        NOTE: This only returns true methods, bound to the class. To add a
+        bound method to an object, look at ``types.MethodType``.
 
         :returns: A dictionary of method name to method (function type).
         :rtype: dict
@@ -158,14 +158,14 @@ class Serializable:
 
         1. Don't have any mandatory arguments to ``__init__``.
         2. Use the same name for attributes as for mandatory arguments (e.g.
-           if a arg1 is a mandatory argument, then the object must have arg1
-           as one of its attributes in the serialized string so it can be passed
+           if a arg1 is a mandatory argument, then the object must have arg1 as
+           one of its attributes in the serialized string so it can be passed
            to ``__init__`` when deserializing and initializing the object.
 
         :param cls: The class to which to deserialize the string to.
         :type cls: class
-        :param serialized: JSON or it's string version.
-        :returns: An instance of ``cls`` representing the ``serialized`` string.
+        :param serialized: JSON or it's string version
+        :returns: An instance of ``cls`` representing the ``serialized`` string
         :rtype: instance of ``cls``
         '''
         cls_name = cls.__name__
@@ -223,8 +223,8 @@ class Serializable:
                 pass
         # Now initialize the object with the provided init args.
         deserialized = cls(*mandatory_args, **optional_args)
-        # Now add all the attributes that aren't mandatory arguments to __init__
-        # to the deserialized object.
+        # Now add all the attributes that aren't mandatory arguments to
+        # __init__ to the deserialized object.
         init_args = mandatory_args + list(optional_args.keys())
         for key, val in serialized_attrs.items():
             if key in init_args:
