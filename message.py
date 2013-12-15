@@ -54,7 +54,8 @@ class Message(object):
     MSG_ACK = 1
     MSG_TASKUNIT = 2
     MSG_TASKUNIT_RESULT = 3  # This is basically a taskunit with only status
-                             # and/or result.
+                             # and/or result. (FIXME: is this needed after the
+                             # new serializaiton method?)
     MSG_JOB = 4
 
     VALID_MSG_TYPES = [MSG_STATUS,
@@ -71,12 +72,15 @@ class Message(object):
         if packed_msg:
             self.packed_msg = packed_msg
             if len(self.packed_msg) > Message.MSG_SIZE:
-                raise Exception("Message size shouldn't exceed %d bytes." % (Message.MSG_SIZE))
+                raise Exception("Message size shouldn't exceed %d bytes." %
+                                (Message.MSG_SIZE))
             try:
                 # Unpack the raw bytes.
-                self.payload_size = len(self.packed_msg) - Message.MSG_HEADER_SIZE
-                unpacked_msg = struct.unpack(Message.MSG_FORMAT % (self.payload_size),
-                                            self.packed_msg)
+                self.payload_size = (len(self.packed_msg) -
+                                     Message.MSG_HEADER_SIZE)
+                unpacked_msg = struct.unpack(Message.MSG_FORMAT %
+                                             (self.payload_size),
+                                             self.packed_msg)
             except:
                 raise Exception('The raw data is malformed. Unable to '
                                 'reconstruct the message.')
@@ -98,24 +102,30 @@ class Message(object):
             else:
                 self.msg_payload = bytes(msg_payload, 'UTF-8')
 
-            self.msg_id      = msg_id
-            self.msg_meta1   = 0xFF if msg_meta1 is None else msg_meta1
-            self.msg_meta2   = 0xFF if msg_meta2 is None else msg_meta2
-            self.msg_meta3   = 0xFF if msg_meta3 is None else msg_meta3
-            self.msg_type    = msg_type
-            self.msg_flags   = msg_flags
-            self.payload_size= len(msg_payload)
-            self.packed_msg  = struct.pack(Message.MSG_FORMAT % self.payload_size,
-                                           self.msg_id, self.msg_meta1,
-                                           self.msg_meta2, self.msg_meta3,
-                                           self.msg_type, self.msg_flags,
-                                           self.msg_payload)
+            self.msg_id       = msg_id
+            self.msg_meta1    = 0xFF if msg_meta1 is None else msg_meta1
+            self.msg_meta2    = 0xFF if msg_meta2 is None else msg_meta2
+            self.msg_meta3    = 0xFF if msg_meta3 is None else msg_meta3
+            self.msg_type     = msg_type
+            self.msg_flags    = msg_flags
+            self.payload_size = len(msg_payload)
+            self.packed_msg   = struct.pack(Message.MSG_FORMAT %
+                                            self.payload_size,
+                                            self.msg_id, self.msg_meta1,
+                                            self.msg_meta2, self.msg_meta3,
+                                            self.msg_type, self.msg_flags,
+                                            self.msg_payload)
         else:
             raise Exception("Either packed_message or msg_payload must be "
                             "given")
 
         return
 
+    def is_last_frag(self):
+        '''Is this the last fragment?
+        '''
+        if self.msg_flags & 0x1 == 0x1:
+            return True
 
     @staticmethod
     def compute_msg_id(msg_payload, msg_type, dest_address):
@@ -135,3 +145,66 @@ class Message(object):
         m.update(hashable)
 
         return m.digest()
+
+    @staticmethod
+    def fragment_payload(msg_payload):
+        '''Fragment the msg_payload to MSG_PAYLOAD_SIZE.
+        '''
+        fragments = []
+        while len(msg_payload) > Message.MSG_PAYLOAD_SIZE:
+            fragments.append(msg_payload[:Message.MSG_PAYLOAD_SIZE + 1])
+            msg_payload = msg_payload[Message.MSG_PAYLOAD_SIZE + 1:]
+        else:
+            fragments.append(msg_payload)
+
+        return fragments
+
+    @staticmethod
+    def packed_fragments(type, payload, address):
+        '''Fragment and pack the msg_payload.
+        '''
+        fragments = Message.fragment_payload(payload)
+        msg_id = Message.compute_msg_id(payload, type, address)
+
+        packed_messages = []
+        for fragment_id, fragment in enumerate(fragments):
+            msg_flags = 0
+            if fragment_id == len(fragments) - 1:
+                msg_flags = msg_flags | 0x1
+                msg_object = Message(packed_msg=None,
+                                     msg_id=msg_id,
+                                     msg_meta1=fragment_id,
+                                     msg_meta2=None,
+                                     msg_meta3=None,
+                                     msg_type=type,
+                                     msg_flags=msg_flags,
+                                     msg_payload=fragment)
+            packed_messages.append(msg_object.packed_msg)
+
+        return (msg_id, packed_messages)
+
+    @staticmethod
+    def glue_fragments(fragments):
+        '''Glue the fragments into one Message object.
+        '''
+        # msg_meta1 is msg_frag_id
+        fragments.sort(key=lambda msg: msg.msg_meta1)
+
+        # If the last frag doesn't claim to be the last fragment...
+        if not fragments[-1].is_last_frag():
+            raise Exception('Malformed fragments. Unable to construct data.')
+        # FIXME: Crude check to make sure that all the fragments are present.
+        last_frag_id = fragments[-1].msg_meta1
+        if last_frag_id != (len(fragments) - 1):
+            raise Exception('Missing a fragment. Unable to construct data.')
+
+        data = b''
+        for fragment in fragments:
+            data += fragment.msg_payload
+
+        # Reconstruct one message object representing these fragments.
+        message = fragments[0]
+        message.msg_payload = data
+        message.msg_frag_id = None
+
+        return message

@@ -41,6 +41,8 @@ class Messenger(object):
         self.outbound_queue = collections.deque()
         self.outbound_queue_sem = threading.Semaphore(value=0)
         self.inbound_queue_sem = threading.Semaphore(value=0)
+        # Fragments map for inbound messages.
+        self.fragments_map = {}
         # This dict is used to keep track of MessageTracker objects which can
         # be used to track message status.
         self.trackers = {}
@@ -86,14 +88,15 @@ class Messenger(object):
             return msg
 
         msg_type = msg.msg_type
+        decoded_msg = msg.msg_payload.decode('UTF-8')
         if msg_type == message.Message.MSG_STATUS:
-            return int(msg.msg_payload.decode('UTF-8'))
+            return int(decoded_msg)
         elif msg_type == message.Message.MSG_TASKUNIT:
-            return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+            return taskunit.TaskUnit.deserialize(decoded_msg)
         elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
-            return taskunit.TaskUnit.deserialize(msg.msg_payload.decode('UTF-8'))
+            return taskunit.TaskUnit.deserialize(decoded_msg)
         elif msg_type == message.Message.MSG_JOB:
-            return job.Job.deserialize(msg.msg_payload.decode('UTF-8'))
+            return job.Job.deserialize(decoded_msg)
 
     def send_status(self, status, address, track=False):
         '''
@@ -104,9 +107,10 @@ class Messenger(object):
         '''
         # Trivially serializeable.
         serialized_status = str(status)
-        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_STATUS,
-                                                          serialized_status,
-                                                          address)
+        msg_id, messages = message.Message.packed_fragments(
+            message.Message.MSG_STATUS,
+            serialized_status,
+            address)
         tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
@@ -121,9 +125,10 @@ class Messenger(object):
         which can be used to check the state of the message sending.
         '''
         msg_id = msg.msg_id
-        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_ACK,
-                                                          msg_id,
-                                                          address)
+        msg_id, messages = message.Message.packed_fragments(
+            message.Message.MSG_ACK,
+            msg_id,
+            address)
         tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
@@ -138,27 +143,31 @@ class Messenger(object):
         which can be used to check the state of the message sending.
         '''
         serialized_job = job.serialize(json_encode=True)
-        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_JOB,
-                                                          serialized_job,
-                                                          address)
+        msg_id, messages = message.Message.packed_fragments(
+            message.Message.MSG_JOB,
+            serialized_job,
+            address)
         tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
         if track:
             return tracker
 
-    def send_taskunit(self, tu, address, track=False, attrs=['id', 'job_id',
-          'data', 'retries', 'state', 'result']):
+    def send_taskunit(self, tu, address, track=False,
+                      attrs=['id', 'job_id', 'data', 'retries', 'state',
+                             'result']):
         '''
         Send a taskunit to a remote node.
 
         If track is True, then this method returns a MessageTracker object
         which can be used to check the state of the message sending.
         '''
-        serialized_taskunit = tu.serialize(include_attrs=attrs, json_encode=True)
-        msg_id, messages = self.packed_messages_from_data(message.Message.MSG_TASKUNIT,
-                                                          serialized_taskunit,
-                                                          address)
+        serialized_taskunit = tu.serialize(include_attrs=attrs,
+                                           json_encode=True)
+        msg_id, messages = message.Message.packed_fragments(
+            message.Message.MSG_TASKUNIT,
+            serialized_taskunit,
+            address)
         tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
@@ -166,15 +175,15 @@ class Messenger(object):
             return tracker
 
     def send_taskunit_result(self, tu, address, track=False,
-          attrs=['id', 'job_id', 'state', 'result']):
+                             attrs=['id', 'job_id', 'state', 'result']):
         '''
         Send the result of running taskunit.
         '''
         serialized_result = tu.serialize(include_attrs=attrs, json_encode=True)
-        MSG_TASKUNIT_RESULT= message.Message.MSG_TASKUNIT_RESULT
-        msg_id, messages = self.packed_messages_from_data(MSG_TASKUNIT_RESULT,
-                                                          serialized_result,
-                                                          address)
+        msg_id, messages = message.Message.packed_fragments(
+            message.Message.MSG_TASKUNIT_RESULT,
+            serialized_result,
+            address)
         tracker = message.MessageTracker(msg_id, isinuse=track)
         self.trackers[msg_id] = tracker
         self.queue_for_sending(messages, address)
@@ -191,7 +200,6 @@ class Messenger(object):
             self.outbound_queue.append((address, message))
             self.outbound_queue_sem.release()
 
-    ##### Message-specific methods.
     def delete_tracker(self, tracker):
         '''
         The tracker for msg_id is no longer needed. Delete it.
@@ -199,105 +207,9 @@ class Messenger(object):
         msg_id = tracker.msg_id
         del self.trackers[msg_id]
 
-    def packed_messages_from_data(self, msg_type, msg_payload, address):
-        '''
-        This function takes raw bytes string and the type of message that needs
-        to be constructed and returns a list of Message objects which are fragments
-        of the data. Fragmentation is done to make sure the message can be sent
-        over UDP.
-        '''
-        if msg_type not in message.Message.VALID_MSG_TYPES:
-            raise Exception('Invalid message type: %d', msg_type)
-
-        # Split the msg_payload into fragments of size 65500 bytes.
-        msg_frags = []
-        while len(msg_payload) > message.Message.MSG_PAYLOAD_SIZE:
-            msg_frags.append(msg_payload[:message.Message.MSG_PAYLOAD_SIZE+1])
-            msg_payload = msg_payload[message.Message.MSG_PAYLOAD_SIZE+1:]
-        else:
-            msg_frags.append(msg_payload)
-
-        # Compute the message id.
-        msg_id = message.Message.compute_msg_id(msg_payload, msg_type, address)
-
-        packed_messages = []
-        for msg_frag_id, msg_frag in enumerate(msg_frags):
-            msg_flags = 0
-            if msg_frag_id == len(msg_frags) - 1:
-                msg_flags = msg_flags | 0x1
-            msg_object = message.Message(packed_msg=None,
-                                         msg_id=msg_id,
-                                         msg_meta1=msg_frag_id,
-                                         msg_meta2=None,
-                                         msg_meta3=None,
-                                         msg_type=msg_type,
-                                         msg_flags=msg_flags,
-                                         msg_payload=msg_frag)
-            packed_messages.append(msg_object.packed_msg)
-
-        return (msg_id, packed_messages)
-
-    def data_from_packed_messages(self, packed_messages):
-        '''
-        This function takes a list of packed messages and extracts the payload
-        from them and reconstructs the data from the fragments.
-        '''
-        return self.message_object_from_packed_messages(packed_messages).msg_payload
-
-    def message_object_from_packed_messages(packed_messages):
-        '''
-        This function takes a list of packed messages and extracts all the fields
-        from them and reconstructs a Message object.
-        '''
-        unpacked_messages = [Message(packed_msg=packed_message)
-                            for packed_message
-                            in packed_messages]
-
-        return self.cat_message_objects(message_objects)
-
-    def cat_message_objects(self, message_objects):
-        '''
-        This function takes a list of Message objects and concatenates (cats) the
-        messages into one Message object.
-        '''
-        # msg_meta1 is msg_frag_id
-        message_objects.sort(key=lambda msg: msg.msg_meta1)
-
-        # If the last frag doesn't claim to be the last fragment...
-        if not self.is_last_frag(message_objects[-1]):
-            raise Exception('Malformed fragments. Unable to construct data.')
-        # FIXME: Crude check to make sure that all the fragments are present.
-        last_frag_id = message_objects[-1].msg_meta1
-        if last_frag_id != (len(message_objects) - 1):
-            raise Exception('Missing a fragment. Unable to construct data.')
-
-        data = b''
-        for message_object in message_objects:
-            data += message_object.msg_payload
-
-        # Reconstruct one message object representing these fragments.
-        catted_message = message_objects[0]
-        catted_message.msg_payload = data
-        catted_message.msg_frag_id = None
-
-        return catted_message
-
-    def is_last_frag(self, msg):
-        if msg.msg_flags & 0x1 == 0x1:
-            return True
-
     @staticmethod
     def sender(messenger):
-        '''
-        This method watches the outbound task_q to see if we have any outbound
-        messages and if we do, it picks up the message and sends it to its
-        destination.
-        In doing so, it also has to poll the socket to make sure that we can send
-        data.
-
-        NOTE: This method goes over the list of destinations in a round-robin
-        way and for each of them, it picks up the first outbound message for
-        that destination and sends it out.
+        '''Send messages out through the sender socket. Forever.
         '''
         poller = select.epoll()
         poller.register(messenger.socket.fileno(),
@@ -317,82 +229,89 @@ class Messenger(object):
                     # If we can send...
                     if event & select.EPOLLOUT:
                         bytes_sent = messenger.socket.sendto(msg, address)
+                        if bytes_sent == 0:
+                            raise Exception("Couldn't send out the message.")
                         # If we have a tracker for this msg, then we need to
                         # mark it as sent if this is the last frag for the msg
                         # being sent out.
                         try:
                             msg_object = message.Message(packed_msg=msg)
-                            if messenger.is_last_frag(msg_object):
+                            if msg_object.is_last_frag():
                                 tracker = messenger.trackers[msg_object.msg_id]
-                                tracker.set_state(message.MessageTracker.MSG_SENT)
+                                tracker.set_state(
+                                    message.MessageTracker.MSG_SENT)
                         except KeyError:
                             pass
 
                         msg = None
                         break
                     else:
-                        messenger.logger.log("Unexpected event on sender socket.")
+                        messenger.logger.log(
+                            "Unexpected event on sender socket.")
+
+    def handle_received_msg(self, msg, address):
+        '''Handle received message.
+        '''
+        fragments_map = self.fragments_map
+
+        msg = message.Message(packed_msg=msg)
+        try:
+            fragments_map[msg.msg_id]
+        except KeyError:
+            fragments_map[msg.msg_id] = []
+
+        if not msg.is_last_frag():
+            fragments_map[msg.msg_id].append(msg)
+        else:
+            msg_frag_id = msg.msg_meta1
+            total_frags = msg_frag_id + 1
+            current_frags = len(fragments_map[msg.msg_id])
+            fragments_map[msg.msg_id].extend(
+                [None] * (total_frags - current_frags))
+            fragments_map[msg.msg_id][-1] = msg
+        # If all the frags for this message have already been received.
+        if None not in fragments_map[msg.msg_id]:
+            if fragments_map[msg.msg_id][-1].is_last_frag():
+                msg = message.Message.glue_fragments(fragments_map[msg.msg_id])
+                # If it is an ack message, then we don't need to put it on the
+                # inbound_queue.
+                msg_id = msg.msg_id
+                # If this message is an ack, then update the tracker.
+                if msg.msg_type == message.Message.MSG_ACK:
+                    MSG_ACKED = message.MessageTracker.MSG_ACKED
+                    acked_msg_id = msg.msg_payload
+                    tracker = self.trackers[acked_msg_id]
+                    tracker.set_state(MSG_ACKED)
+                    # If the tracker is not being used, delete it.
+                    if not tracker.isinuse:
+                        self.delete_tracker(tracker)
+                        return
+                self.inbound_queue.append((address, msg))
+                self.inbound_queue_sem.release()
+                # Send an ack now that we have received the msg.
+                self.send_ack(msg, address)
+                del fragments_map[msg_id]
+
+        return
 
     @staticmethod
     def receiver(messenger):
-        '''
-        This method polls the socket to see if it has received any messages.
-        If yes, it puts the raw message on a fragments queue and cats the
-        messages together if all the fragments are received.
-        Sleeps for 3 seconds otherwise.
+        '''Receive messages on the receiver socket. Forever.
         '''
         poller = select.epoll()
         poller.register(messenger.socket.fileno(),
                         select.EPOLLIN | select.EPOLLET)  # Edge-triggered.
 
-        fragments_map = {}
-
         messenger.logger.log("Receiver up!")
         while True:
-            # Poll with timeout of 1.0 seconds.
             poll_responses = poller.poll()
             for fileno, event in poll_responses:
-                # We received something on our socket.
-                if event & select.EPOLLIN:
-                    data, address = messenger.socket.recvfrom(message.Message.MSG_SIZE)
-                    messenger.logger.log("Received message from %s:%d" % address)
-                    # Make a message object out of the data and append it
-                    # to the fragments_map...
-                    msg = message.Message(packed_msg=data)
-                    try:
-                        fragments_map[msg.msg_id]
-                    except KeyError:
-                        fragments_map[msg.msg_id] = []
+                if not event & select.EPOLLIN:
+                    messenger.logger.log(
+                        "Unexpected event on receiver socket.")
+                    continue
+                data, address = messenger.socket.recvfrom(
+                    message.Message.MSG_SIZE)
+                messenger.logger.log("Received message from %s:%d" % address)
 
-                    if not messenger.is_last_frag(msg):
-                        fragments_map[msg.msg_id].append(msg)
-                    else:
-                        msg_frag_id = msg.msg_meta1
-                        total_frags = msg_frag_id + 1
-                        current_frags = len(fragments_map[msg.msg_id])
-                        fragments_map[msg.msg_id].extend([None] * (total_frags - current_frags))
-                        fragments_map[msg.msg_id][-1] = msg
-                    # If all the frags for this message have already been received...
-                    if None not in fragments_map[msg.msg_id]:
-                        if messenger.is_last_frag(fragments_map[msg.msg_id][-1]):
-                            catted_msg = messenger.cat_message_objects(fragments_map[msg.msg_id])
-                            # If it is an ack message, then we don't need to put it on the
-                            # inbound_queue.
-                            msg_id = catted_msg.msg_id
-                            # If this message is an ack, then update the tracker.
-                            if catted_msg.msg_type == message.Message.MSG_ACK:
-                                MSG_ACKED = message.MessageTracker.MSG_ACKED
-                                acked_msg_id = catted_msg.msg_payload
-                                tracker = messenger.trackers[acked_msg_id]
-                                tracker.set_state(MSG_ACKED)
-                                # If the tracker is not being used, delete it.
-                                if not tracker.isinuse:
-                                    messenger.delete_tracker(tracker)
-                                continue
-                            messenger.inbound_queue.append((address, catted_msg))
-                            messenger.inbound_queue_sem.release()
-                            # Send an ack now that we have received the msg.
-                            messenger.send_ack(catted_msg, address)
-                            del fragments_map[msg.msg_id]
-                else:
-                    messenger.logger.log("Unexpected event on receiver socket.")
+                messenger.handle_received_msg(data, address)
