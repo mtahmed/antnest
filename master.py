@@ -1,6 +1,5 @@
 # Standard imports
 import inspect
-import json
 
 # Custom imports
 import job
@@ -15,7 +14,7 @@ class Master(node.LocalNode):
     '''An instance of this class represents a master node.
 
     A master node assigns work to its slaves after the job has been split up
-    into work units. It then combines the results into the final expected result
+    into taskunits. It then combines the results into the final expected result
     when it gets back the "intermediate results" from the slaves.
     '''
     def __init__(self, port):
@@ -48,7 +47,7 @@ class Master(node.LocalNode):
             # So we need to manually fill the rest.
             processor_source = inspect.getsource(tu.processor)
             taskunit_id = taskunit.TaskUnit.compute_id(tu.data,
-                                                        processor_source)
+                                                       processor_source)
             tu.id = taskunit_id
             tu.job_id = j.id
             tu.job_size = 1
