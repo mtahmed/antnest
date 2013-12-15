@@ -62,6 +62,11 @@ python commands/create_job.py -j jobs/reverse_strings.py
 The jobs are, by convention, defined in `jobs/` directory as python files.
 `reverse_strings.py` is one of the sample jobs provided.
 
+## Testing
+
+Requires `pytest` for testing. Simply run `py.test` from the root directory of
+the repository to run the tests. TODO: Test coverage
+
 # Contact
 
 - Muhammad Tauqir Ahmad
@@ -71,8 +76,6 @@ The jobs are, by convention, defined in `jobs/` directory as python files.
 ## TODO
 
 - Add license info.
-- Testing
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/mtahmed/antnest/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
-
