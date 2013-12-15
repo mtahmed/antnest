@@ -8,13 +8,13 @@ import types
 class TaskUnit(serialize.Serializable):
     '''
     An instance of this class represents a task unit that is processed by a
-    slave node. A task unit is small enough to be processed on its own (that is,
+    slave node. A task unit is small enough to be processed on its own (that is
     it does not depend on any other data for its processing). A task unit has
     the following parts to it:
     # id: See the compute_id static method to see how it's computed.
     # data: Some data the task is to be run on. E.g. data could be a number
       which the slave machine has to find all the factors for.
-      Data must be something that is "serializable". For now, we will define the
+      Data must be something that is "serializable". For now we will define the
       following objects/types that are serializable:
         - str (including unicode, binary, raw etc.)
         - int
@@ -24,7 +24,7 @@ class TaskUnit(serialize.Serializable):
         - dictionary with key/values of either of the above type
         - byte array
     # processor: A method that takes Data (see previous) and processes it in
-      some way to produce the result. E.g. the processor could be a method which
+      some way to produce the result e.g. the processor could be a method which
       factorizes a number and produces a list of factors.
     # run: This method calls the processor(see #2) with with the data(see #1).
       It then returns the result which is then put into the task unit's
@@ -68,8 +68,7 @@ class TaskUnit(serialize.Serializable):
         :param id: The TaskUnit id. (see ``compute_id`` method)
         :param job_id: The id of the Job this TaskUnit is part of.
         :param data: The data to run the processor on.
-        :param processor: A function that takes data and processes it to produce
-        the results required.
+        :param processor: Processes data to produce the required results.
         :param retries: Number of retries after failures allowed.
         :param state: The state of the TaskUnit. (see ``STATES``)
         '''
@@ -115,7 +114,7 @@ class TaskUnit(serialize.Serializable):
             result = self.processor(self.data)
             self.result = result
             self.setstate('COMPLETED')
-        except Exception as e:
+        except Exception:
             if self.retries == 0:
                 self.state = 'BAILED'
             else:
