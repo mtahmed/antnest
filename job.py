@@ -1,6 +1,7 @@
 # Standard imports
 import hashlib
 import json
+import time
 
 # Custom imports
 import serialize
@@ -69,8 +70,8 @@ class Job(serialize.Serializable):
         else:
             combine_code_bytes = bytes(combine_code, 'UTF-8')
 
-        hashable = (input_data_bytes + processor_code_bytes + split_code_bytes +
-                    combine_code_bytes)
+        hashable = (input_data_bytes + processor_code_bytes +
+                    split_code_bytes + combine_code_bytes)
         m.update(hashable)
 
         return m.hexdigest()
@@ -97,8 +98,8 @@ class Splitter(serialize.Serializable):
     def split(self, input_data, processor):
         '''Generate splits (taskunits) given an input file and a processor.
 
-        The input_data is split at newlines and one taskunit is created for each
-        line.
+        The input_data is split at newlines and one taskunit is created for
+        each line.
 
         This method can be overwritten if the user of the system decides to use
         their own splitter.
@@ -121,7 +122,8 @@ class Combiner(serialize.Serializable):
     '''
     def __init__(self):
         super().__init__()
-        self.noserialize += ['set_combine_method', 'add_taskunits', 'taskunits']
+        self.noserialize += ['set_combine_method', 'add_taskunits',
+                             'taskunits']
         self.taskunits = []
 
     def set_combine_method(self, combine_method):
