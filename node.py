@@ -1,6 +1,7 @@
 import json
 import socket
 
+
 class Node(object):
     '''Represents a machine in our distributed system cluster.
     '''
@@ -69,7 +70,7 @@ class RemoteNode(Node):
 class LocalNode(Node):
     '''Represents a local node.
 
-    It is to be used on the machine that this class is instantiated to represent
+    To be used on the machine that this class is instantiated to represent
     itself. A LocalNode must have a config_path defined.
     '''
     def __init__(self, config_path=None):
