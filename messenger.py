@@ -75,28 +75,29 @@ class Messenger(object):
         self.hostname_to_address[hostname] = address
         self.address_to_hostname[address] = hostname
 
-    def receive(self, return_payload=True):
-        '''Return the next message from the inbound_queue.
+    def receive(self, deserialize=True):
+        '''Yield the next message from the inbound_queue.
 
-        :param return_payload: If True, the message payload is deserialized
-        and returned instead of the Message object itself.
+        :param deserialize: If True, the message payload is deserialized
+        and generated instead of the Message object itself.
         '''
-        self.inbound_queue_sem.acquire()
-        msg = self.inbound_queue.popleft()
+        while self.inbound_queue_sem.acquire():
+            msg = self.inbound_queue.popleft()
 
-        if not return_payload:
-            return msg
+            if not deserialize:
+                yield msg
+                continue
 
-        msg_type = msg.msg_type
-        decoded_msg = msg.msg_payload.decode('UTF-8')
-        if msg_type == message.Message.MSG_STATUS:
-            return int(decoded_msg)
-        elif msg_type == message.Message.MSG_TASKUNIT:
-            return taskunit.TaskUnit.deserialize(decoded_msg)
-        elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
-            return taskunit.TaskUnit.deserialize(decoded_msg)
-        elif msg_type == message.Message.MSG_JOB:
-            return job.Job.deserialize(decoded_msg)
+            msg_type = msg.msg_type
+            decoded_msg = msg.msg_payload.decode('UTF-8')
+            if msg_type == message.Message.MSG_STATUS:
+                yield int(decoded_msg)
+            elif msg_type == message.Message.MSG_TASKUNIT:
+                yield taskunit.TaskUnit.deserialize(decoded_msg)
+            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+                yield taskunit.TaskUnit.deserialize(decoded_msg)
+            elif msg_type == message.Message.MSG_JOB:
+                yield job.Job.deserialize(decoded_msg)
 
     def send_status(self, status, address, track=False):
         '''

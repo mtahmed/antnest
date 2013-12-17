@@ -75,11 +75,9 @@ class Master(node.LocalNode):
         Messages could be new jobs, processed task units from slaves, status
         updates from slaves etc.
         '''
-        while True:
-            # This blocks if inbound_queue in messenger empty.
-            address, msg = self.messenger.receive(return_payload=False)
-
+        for address, msg in self.messenger.receive(deserialize=False):
             msg_type = msg.msg_type
+
             if msg_type == message.Message.MSG_STATUS:
                 status = int(msg.msg_payload.decode('utf-8'))
                 # If the slave is sending a STATUS_UP, then store it in our

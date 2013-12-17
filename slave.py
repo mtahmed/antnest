@@ -95,11 +95,10 @@ class Slave(node.LocalNode):
         It then sets the status of the TaskUnit appropriately and sends the it
         back to the master through the messenger.
         '''
-        while True:
-            # This blocks if inbound_queue in messenger empty.
-            address, msg = self.messenger.receive(return_payload=False)
+        for address, msg in self.messenger.receive(deserialize=False):
+            msg_type = msg.msg_type
 
-            if msg.msg_type == message.Message.MSG_TASKUNIT:
+            if msg_type == message.Message.MSG_TASKUNIT:
                 object_dict = msg.msg_payload.decode('utf-8')
                 tu = taskunit.TaskUnit.deserialize(object_dict)
                 # TODO(mtahmed): Run this in a new thread? Maybe? Investigate.
