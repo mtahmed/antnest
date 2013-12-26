@@ -15,7 +15,7 @@ import message
 
 def enqueue_job(jobpath, dest_port):
     # Bind to some other port. Not to the main 33310.
-    m = messenger.Messenger(port=0)
+    m = messenger.UDPMessenger(port=0)
     m.start()
     my_hostname = socket.gethostname()
     m.register_destination(my_hostname,
@@ -66,5 +66,5 @@ if __name__ == '__main__':
                         help='the destination port to send the job to')
 
     args = parser.parse_args()
-    port = args.port or messenger.Messenger.DEFAULT_PORT
+    port = args.port or messenger.UDPMessenger.DEFAULT_PORT
     enqueue_job(args.jobpath, port)

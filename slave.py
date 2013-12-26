@@ -29,7 +29,7 @@ class Slave(node.LocalNode):
         self.master_nodes = []
         self.config['port'] = port
 
-        self.messenger = messenger.Messenger(port=self.config['port'])
+        self.messenger = messenger.UDPMessenger(port=self.config['port'])
         self.messenger.start()
 
         for master in self.config['masters']:
@@ -38,7 +38,7 @@ class Slave(node.LocalNode):
             try:
                 master_port = master['port']
             except KeyError:
-                master_port = messenger.Messenger.DEFAULT_PORT
+                master_port = messenger.UDPMessenger.DEFAULT_PORT
 
             try:
                 master_ip = master['ip']

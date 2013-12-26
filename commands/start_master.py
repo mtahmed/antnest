@@ -25,5 +25,5 @@ if __name__ == '__main__':
 
 
     args = parser.parse_args()
-    port = args.port if args.port else messenger.Messenger.DEFAULT_PORT
+    port = args.port if args.port else messenger.UDPMessenger.DEFAULT_PORT
     start_master(port)

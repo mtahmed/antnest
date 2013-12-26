@@ -11,27 +11,21 @@ import taskunit
 import utils.logger
 
 
-class Messenger(object):
+class Messenger:
     '''A class representing a messenger that handles all communication.
     '''
-    # Constants
-    DEFAULT_PORT = 33310
+    def __init__(self):
+        # identity <--> address maps.
+        self.identity_to_address = {}
+        self.address_to_identity = {}
 
-    def __init__(self, port=DEFAULT_PORT):
-        # Set the port.
-        self.port = port
-
-        # Hostname <--> address maps.
-        self.hostname_to_address = {}
-        self.address_to_hostname = {}
         # Both inbound_queue and outbound_queue contain tuples of
         # (address, message) that are received or need to be sent out.
         self.inbound_queue = collections.deque()
         self.outbound_queue = collections.deque()
         self.outbound_queue_sem = threading.Semaphore(value=0)
         self.inbound_queue_sem = threading.Semaphore(value=0)
-        # Fragments map for inbound messages.
-        self.fragments_map = {}
+
         # This dict is used to keep track of MessageTracker objects which can
         # be used to track message status.
         self.trackers = {}
@@ -43,38 +37,32 @@ class Messenger(object):
     def start(self):
         '''Start the messenger.
         '''
-        # Create the sockets.
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(('0.0.0.0', self.port))
+        pass
 
-        # Create and start the receiver and sender threads now.
-        receiver_thread = threading.Thread(target=self.receiver,
-                                           name='receiver_thread',
-                                           args=(self,))
-        sender_thread = threading.Thread(target=self.sender,
-                                         name='sender_thread',
-                                         args=(self,))
-        receiver_thread.start()
-        sender_thread.start()
-
-        return
-
-    def get_address_from_hostname(self, hostname):
+    def get_host_by_name(self, name):
+        '''Return the address for the hostname.
         '''
-        Return the ip address for the hostname `hostname`.
-        '''
-        return self.hostname_to_address[hostname]
+        return self.identity_to_address[name]
 
-    def register_destination(self, hostname, address):
+    def register_destination(self, name, address):
         '''
         Store the hostname as key with address as value for this destination
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
-        self.logger.log("Register destination %s:%s" % (hostname, address))
-        self.hostname_to_address[hostname] = address
-        self.address_to_hostname[address] = hostname
+        self.logger.log("Register destination %s:%s" % (name, address))
+        self.identity_to_address[name] = address
+        self.address_to_identity[address] = name
+
+        return
+
+    def send(self, msg, address):
+        '''Send the msg to the address.
+        '''
+        self.outbound_queue.append((address, msg))
+        self.outbound_queue_sem.release()
+
+        return
 
     def receive(self, deserialize=True):
         '''Yield the next message from the inbound_queue.
@@ -99,6 +87,75 @@ class Messenger(object):
                 yield taskunit.TaskUnit.deserialize(decoded_msg)
             elif msg_type == message.Message.MSG_JOB:
                 yield job.Job.deserialize(decoded_msg)
+
+    def queue_for_sending(self, messages, address):
+        '''Add messages to the outbound queue for sending.
+
+        NOTE: This method takes a list of messages and not a single message.
+        '''
+        for message in messages:
+            self.outbound_queue.append((address, message))
+            self.outbound_queue_sem.release()
+
+        return
+
+    def delete_tracker(self, tracker):
+        '''
+        The tracker for msg_id is no longer needed. Delete it.
+        '''
+        msg_id = tracker.msg_id
+        del self.trackers[msg_id]
+
+        return
+
+    def sender(self):
+        '''Send messages out through the sender socket. Forever.
+        '''
+        pass
+
+    def receiver(self):
+        '''Receive messages on the receiver socket. Forever.
+        '''
+        pass
+
+
+class UDPMessenger(Messenger):
+    '''A Messenger that uses UDP sockets for communication.
+
+    This messenger implements custom fragmentation, ack etc.
+    '''
+    # Constants
+    DEFAULT_IP   = '0.0.0.0'
+    DEFAULT_PORT = 33310
+
+    def __init__(self, ip=DEFAULT_IP, port=DEFAULT_PORT):
+        super().__init__()
+
+        self.ip = ip
+        self.port = port
+
+        # Fragments map for inbound messages.
+        self.fragments_map = {}
+
+        return
+
+    def start(self):
+        '''Start the messenger.
+        '''
+        # Create the sockets.
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(('0.0.0.0', self.port))
+
+        # Create and start the receiver and sender threads now.
+        receiver_thread = threading.Thread(target=self.receiver,
+                                           name='receiver_thread')
+        sender_thread = threading.Thread(target=self.sender,
+                                         name='sender_thread')
+        receiver_thread.start()
+        sender_thread.start()
+
+        return
 
     def send_status(self, status, address, track=False):
         '''
@@ -192,37 +249,19 @@ class Messenger(object):
         if track:
             return tracker
 
-    def queue_for_sending(self, messages, address):
-        '''
-        This method appends the new messages to the list for the dest in the
-        outbound_queue.
-        NOTE: This method takes a list of messages and not a single message.
-        '''
-        for message in messages:
-            self.outbound_queue.append((address, message))
-            self.outbound_queue_sem.release()
-
-    def delete_tracker(self, tracker):
-        '''
-        The tracker for msg_id is no longer needed. Delete it.
-        '''
-        msg_id = tracker.msg_id
-        del self.trackers[msg_id]
-
-    @staticmethod
-    def sender(messenger):
+    def sender(self):
         '''Send messages out through the sender socket. Forever.
         '''
         poller = select.epoll()
-        poller.register(messenger.socket.fileno(),
+        poller.register(self.socket.fileno(),
                         select.EPOLLOUT | select.EPOLLET)  # Edge-triggered.
 
-        messenger.logger.log("Sender up!")
+        self.logger.log("Sender up!")
         while True:
-            messenger.outbound_queue_sem.acquire()
-            address, msg = messenger.outbound_queue.popleft()
+            self.outbound_queue_sem.acquire()
+            address, msg = self.outbound_queue.popleft()
 
-            messenger.logger.log("Sending message to %s:%d" % address)
+            self.logger.log("Sending message to %s:%d" % address)
             # While the msg is still not sent...
             while msg is not None:
                 # Poll with timeout of 1.0 seconds.
@@ -230,7 +269,7 @@ class Messenger(object):
                 for _, event in poll_responses:
                     # If we can send...
                     if event & select.EPOLLOUT:
-                        bytes_sent = messenger.socket.sendto(msg, address)
+                        bytes_sent = self.socket.sendto(msg, address)
                         if bytes_sent == 0:
                             raise Exception("Couldn't send out the message.")
                         # If we have a tracker for this msg, then we need to
@@ -239,7 +278,7 @@ class Messenger(object):
                         try:
                             msg_object = message.Message(packed_msg=msg)
                             if msg_object.is_last_frag():
-                                tracker = messenger.trackers[msg_object.msg_id]
+                                tracker = self.trackers[msg_object.msg_id]
                                 tracker.set_state(
                                     message.MessageTracker.MSG_SENT)
                         except KeyError:
@@ -248,8 +287,7 @@ class Messenger(object):
                         msg = None
                         break
                     else:
-                        messenger.logger.log(
-                            "Unexpected event on sender socket.")
+                        self.logger.log("Unexpected event on sender socket.")
 
     def handle_received_msg(self, msg, address):
         '''Handle received message.
@@ -296,24 +334,22 @@ class Messenger(object):
 
         return
 
-    @staticmethod
-    def receiver(messenger):
+    def receiver(self):
         '''Receive messages on the receiver socket. Forever.
         '''
         poller = select.epoll()
-        poller.register(messenger.socket.fileno(),
+        poller.register(self.socket.fileno(),
                         select.EPOLLIN | select.EPOLLET)  # Edge-triggered.
 
-        messenger.logger.log("Receiver up!")
+        self.logger.log("Receiver up!")
         while True:
             poll_responses = poller.poll()
             for fileno, event in poll_responses:
                 if not event & select.EPOLLIN:
-                    messenger.logger.log(
+                    self.logger.log(
                         "Unexpected event on receiver socket.")
                     continue
-                data, address = messenger.socket.recvfrom(
-                    message.Message.MSG_SIZE)
-                messenger.logger.log("Received message from %s:%d" % address)
+                data, address = self.socket.recvfrom(message.Message.MSG_SIZE)
+                self.logger.log("Received message from %s:%d" % address)
 
-                messenger.handle_received_msg(data, address)
+                self.handle_received_msg(data, address)
