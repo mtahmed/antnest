@@ -16,6 +16,7 @@ import message
 def enqueue_job(jobpath, dest_port):
     # Bind to some other port. Not to the main 33310.
     m = messenger.Messenger(port=0)
+    m.start()
     my_hostname = socket.gethostname()
     m.register_destination(my_hostname,
                            ('0.0.0.0', dest_port))

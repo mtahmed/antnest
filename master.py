@@ -30,6 +30,7 @@ class Master(node.LocalNode):
         self.slave_nodes = []
         self.scheduler = schedule.MinMakespan()
         self.messenger = messenger.Messenger(port=self.config['port'])
+        self.messenger.start()
         # A map of job_ids to Jobs.
         self.jobs = {}
 

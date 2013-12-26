@@ -30,6 +30,7 @@ class Slave(node.LocalNode):
         self.config['port'] = port
 
         self.messenger = messenger.Messenger(port=self.config['port'])
+        self.messenger.start()
 
         for master in self.config['masters']:
             master_hostname = master['hostname']

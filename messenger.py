@@ -12,13 +12,7 @@ import utils.logger
 
 
 class Messenger(object):
-    '''
-    An instance of this class represents an object that "serves" a node to
-    communicate with other nodes (e.g. a slave's messenger will allow it to
-    send completed task units back to the master).
-
-    The messenger can be given an instance of a TaskUnit to send and it will
-    take care of the serialization.
+    '''A class representing a messenger that handles all communication.
     '''
     # Constants
     DEFAULT_PORT = 33310
@@ -26,11 +20,6 @@ class Messenger(object):
     def __init__(self, port=DEFAULT_PORT):
         # Set the port.
         self.port = port
-
-        # Create the sockets.
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(('0.0.0.0', self.port))
 
         # Hostname <--> address maps.
         self.hostname_to_address = {}
@@ -49,6 +38,16 @@ class Messenger(object):
 
         self.logger = utils.logger.Logger('MESSENGER')
 
+        return
+
+    def start(self):
+        '''Start the messenger.
+        '''
+        # Create the sockets.
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.socket.bind(('0.0.0.0', self.port))
+
         # Create and start the receiver and sender threads now.
         receiver_thread = threading.Thread(target=self.receiver,
                                            name='receiver_thread',
@@ -58,6 +57,8 @@ class Messenger(object):
                                          args=(self,))
         receiver_thread.start()
         sender_thread.start()
+
+        return
 
     def get_address_from_hostname(self, hostname):
         '''
