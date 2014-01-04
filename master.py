@@ -29,10 +29,14 @@ class Master(node.LocalNode):
         self.completed_jobs = []
         self.slave_nodes = []
         self.scheduler = schedule.MinMakespan()
-        self.messenger = messenger.UDPMessenger(port=self.config['port'])
+        messenger_type = messenger.ZMQMessenger.TYPE_SERVER
+        self.messenger = messenger.ZMQMessenger(type=messenger_type,
+                                                port=self.config['port'])
         self.messenger.start()
         # A map of job_ids to Jobs.
         self.jobs = {}
+
+        return
 
     def process_job(self, j):
         '''Process a job received from the user.
@@ -77,27 +81,24 @@ class Master(node.LocalNode):
         updates from slaves etc.
         '''
         for address, msg in self.messenger.receive(deserialize=False):
-            msg_type = msg.msg_type
+            #msg_type = msg.msg_type
 
-            if msg_type == message.Message.MSG_STATUS:
-                status = int(msg.msg_payload.decode('utf-8'))
-                # If the slave is sending a STATUS_UP, then store it in our
-                # slave_nodes array.
-                print("MASTER: STATE_UP received from %s:%d" % address)
-                if status == node.Node.STATE_UP:
-                    self.slave_nodes.append(node.RemoteNode(None, address))
-                    self.scheduler.add_machine()
-                    self.messenger.register_destination('slave1', address)
-            elif msg_type == message.Message.MSG_JOB:
+            if msg == 'PING':
+                print("MASTER: PING from %s:%d" % address)
+                self.messenger.pong(address)
+                self.slave_nodes.append(node.RemoteNode(None, address))
+                self.scheduler.add_machine()
+                self.messenger.register_destination('slave1', address)
+            elif msg['class'] == 'job.Job':
                 print("MASTER: Got a new job.")
-                object_dict = msg.msg_payload.decode('utf-8')
-                j = job.Job.deserialize(object_dict)
+                #object_dict = msg.msg_payload.decode('utf-8')
+                j = job.Job.deserialize(msg)
                 self.process_job(j)
-            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+            elif msg['class'] == 'taskunit.TaskUnit':
                 # TODO: MA Handle failed tasks.
                 print("MASTER: Got a taskunit result back.")
-                object_dict = msg.msg_payload.decode('utf-8')
-                tu = taskunit.TaskUnit.deserialize(object_dict)
+                #object_dict = msg.msg_payload.decode('utf-8')
+                tu = taskunit.TaskUnit.deserialize(msg)
                 job_id = tu.job_id
                 j = self.jobs[job_id]
                 taskunit_id = tu.id

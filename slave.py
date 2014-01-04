@@ -29,7 +29,9 @@ class Slave(node.LocalNode):
         self.master_nodes = []
         self.config['port'] = port
 
-        self.messenger = messenger.UDPMessenger(port=self.config['port'])
+        messenger_type = messenger.ZMQMessenger.TYPE_CLIENT
+        self.messenger = messenger.ZMQMessenger(type=messenger_type,
+                                                port=self.config['port'])
         self.messenger.start()
 
         for master in self.config['masters']:
@@ -60,28 +62,10 @@ class Slave(node.LocalNode):
 
         This involves sending a status update to the master.
         '''
-        unacked_masters = self.master_nodes
-        num_unacked_masters = len(unacked_masters)
-        trackers = [None] * len(unacked_masters)
-        while num_unacked_masters > 0:
-            for index, master in enumerate(unacked_masters):
-                if master is None:
-                    continue
-                tracker = trackers[index]
-                if tracker is None:
-                    tracker = self.messenger.send_status(node.Node.STATE_UP,
-                                                         master.address,
-                                                         track=True)
-                    trackers[index] = tracker
-                    continue
-                elif tracker.state != message.MessageTracker.MSG_ACKED:
-                    self.messenger.send_status(node.Node.STATE_UP,
-                                               master.address)
-                elif tracker.state == message.MessageTracker.MSG_ACKED:
-                    self.messenger.delete_tracker(tracker)
-                    unacked_masters[index] = None
-                    num_unacked_masters -= 1
-            time.sleep(0.05)
+        for master in self.master_nodes:
+            self.messenger.connect(master.address)
+            self.messenger.ping(master.address)
+
         return
 
     def worker(self):
@@ -97,11 +81,13 @@ class Slave(node.LocalNode):
         back to the master through the messenger.
         '''
         for address, msg in self.messenger.receive(deserialize=False):
-            msg_type = msg.msg_type
+            #msg_type = msg.msg_type
 
-            if msg_type == message.Message.MSG_TASKUNIT:
-                object_dict = msg.msg_payload.decode('utf-8')
-                tu = taskunit.TaskUnit.deserialize(object_dict)
+            if msg == 'PONG':
+                print("SLAVE: PONG from %s:%d" % address)
+            elif msg['class'] == 'taskunit.TaskUnit':
+                #object_dict = msg.msg_payload.decode('utf-8')
+                tu = taskunit.TaskUnit.deserialize(msg)
                 # TODO(mtahmed): Run this in a new thread? Maybe? Investigate.
                 tu.run()
                 self.messenger.send_taskunit_result(tu, address)

@@ -1,8 +1,10 @@
 # Standard imports
 import collections
+import json
 import select
 import socket
 import threading
+import zmq
 
 # Custom imports
 import job
@@ -50,7 +52,6 @@ class Messenger:
         so that the caller can later only supply destination as hostname
         to communicate with the destination.
         '''
-        self.logger.log("Register destination %s:%s" % (name, address))
         self.identity_to_address[name] = address
         self.address_to_identity[address] = name
 
@@ -353,3 +354,146 @@ class UDPMessenger(Messenger):
                 self.logger.log("Received message from %s:%d" % address)
 
                 self.handle_received_msg(data, address)
+
+
+class ZMQMessenger(Messenger):
+    # Constants
+    DEFAULT_PORT = 33310
+
+    # Messenger types
+    TYPE_SERVER = 0  # Listener socket. Accepts connections.
+    TYPE_CLIENT = 1  # Client socket. Connects to server.
+    VALID_TYPES = [TYPE_SERVER, TYPE_CLIENT]
+
+    def __init__(self, type, ip=None, port=DEFAULT_PORT):
+        '''
+        :param type: The type of Messenger. Can be SERVER or CLIENT messenger.
+        :param ip: The ip of the interface the socket should use.
+        :param port: The port the socket should use.
+        '''
+        super().__init__()
+
+        self.type = type
+        self.ip = ip
+        self.port = port
+
+        self.context = zmq.Context()
+
+        return
+
+    def start(self):
+        if self.ip:
+            public_ip = ip
+        else:
+            public_ip = self.get_public_ip()
+        identity = 'tcp://%s:%d' % (public_ip, self.port)
+        self.socket = self.context.socket(zmq.ROUTER)
+        self.socket.setsockopt(zmq.IDENTITY, bytes(identity, 'UTF-8'))
+
+        if self.type == self.TYPE_SERVER:
+            self.socket.bind(identity)
+
+        # Create and start the receiver and sender threads now.
+        receiver_thread = threading.Thread(target=self.receiver,
+                                           name='receiver')
+        sender_thread = threading.Thread(target=self.sender,
+                                         name='sender')
+        receiver_thread.start()
+        sender_thread.start()
+
+        return
+
+    def connect(self, address):
+        self.socket.connect('tcp://%s:%d' % address)
+
+        return
+
+    def ping(self, address):
+        self.send(json.dumps('PING'), address)
+
+        return
+
+    def pong(self, address):
+        self.send(json.dumps('PONG'), address)
+
+        return
+
+    def send(self, msg, address):
+        self.outbound_queue.append((address, msg))
+        self.outbound_queue_sem.release()
+
+        return
+
+    def send_job(self, job, address):
+        '''Send a job to a remote node.
+        '''
+        serialized_job = job.serialize(json_encode=True)
+        self.send(serialized_job, address)
+
+        return
+
+    def send_taskunit(self, tu, address,
+                      attrs=['id', 'job_id', 'data', 'retries', 'state',
+                             'result']):
+        '''Send a taskunit to a remote node.
+        '''
+        serialized_taskunit = tu.serialize(include_attrs=attrs,
+                                           json_encode=True)
+        self.send(serialized_taskunit, address)
+
+        return
+
+    def send_taskunit_result(self, tu, address,
+                             attrs=['id', 'job_id', 'state', 'result']):
+        '''Send the result of running taskunit.
+        '''
+        serialized_result = tu.serialize(include_attrs=attrs, json_encode=True)
+        self.send(serialized_result, address)
+
+        return
+
+    def sender(self):
+        '''Send messages out through the socket. Forever.
+        '''
+        while True:
+            self.outbound_queue_sem.acquire()
+            address, msg = self.outbound_queue.popleft()
+
+            address = 'tcp://%s:%d' % address
+
+            self.socket.send_string(address, zmq.SNDMORE)
+            self.socket.send_string("", zmq.SNDMORE)
+            self.socket.send_string(msg)
+
+    def receiver(self):
+        '''Receive messages on the socket. Forever.
+        '''
+        while True:
+            address = self.socket.recv_string()
+            assert self.socket.recv() == b""  # Empty delimiter
+            msg = self.socket.recv_json()
+
+            # FIXME(mtahmed): This would probably fail for IPV6.
+            address = address.split(':')[1:]
+            address[0] = address[0][2:]
+            address[1] = int(address[1])
+            address = tuple(address)
+
+            self.inbound_queue.append((address, msg))
+            self.inbound_queue_sem.release()
+
+    @staticmethod
+    def get_public_ip():
+        '''Get the ip address of the external interface.
+
+        This tries to connect to some public service to try to see what
+        interface the socket binds to and uses that interface's address.
+        '''
+        import socket
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        google_addr = socket.gethostbyname('www.google.com')
+        s.connect((google_addr, 80))
+        addr = s.getsockname()[0]
+        s.close()
+
+        return addr

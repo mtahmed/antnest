@@ -1,5 +1,6 @@
 # Standard imports
 import hashlib
+import json
 import struct
 
 
@@ -208,3 +209,21 @@ class Message(object):
         message.msg_frag_id = None
 
         return message
+
+
+class ZMQMessage:
+    def __init__(self, json_string=None, json_decoded=None):
+        if json_decoded:
+            self.json_decoded = json_decoded
+        elif json_string:
+            self.json_decoded = json.loads(json_string)
+            self.json_string = json_string
+
+    def __getattr__(self, name):
+        return self.json_decoded[name]
+
+    def __getitem__(self, key):
+        return self.json_decoded[key]
+
+    def __eq__(self, other):
+        return other == self.json_decoded
