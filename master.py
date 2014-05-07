@@ -81,7 +81,6 @@ class Master(node.LocalNode):
         updates from slaves etc.
         '''
         for address, msg in self.messenger.receive(deserialize=False):
-            #msg_type = msg.msg_type
 
             if msg == 'PING':
                 print("MASTER: PING from %s:%d" % address)

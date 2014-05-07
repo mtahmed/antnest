@@ -64,7 +64,7 @@ class Slave(node.LocalNode):
         '''
         for master in self.master_nodes:
             self.messenger.connect(master.address)
-            self.messenger.ping(master.address)
+            print("Connected to %s:%s" % master.address)
 
         return
 
@@ -81,7 +81,6 @@ class Slave(node.LocalNode):
         back to the master through the messenger.
         '''
         for address, msg in self.messenger.receive(deserialize=False):
-            #msg_type = msg.msg_type
 
             if msg == 'PONG':
                 print("SLAVE: PONG from %s:%d" % address)

@@ -359,6 +359,7 @@ class UDPMessenger(Messenger):
 class ZMQMessenger(Messenger):
     # Constants
     DEFAULT_PORT = 33310
+    NUM_TRIES = 3
 
     # Messenger types
     TYPE_SERVER = 0  # Listener socket. Accepts connections.
@@ -386,6 +387,7 @@ class ZMQMessenger(Messenger):
             public_ip = ip
         else:
             public_ip = self.get_public_ip()
+
         identity = 'tcp://%s:%d' % (public_ip, self.port)
         self.socket = self.context.socket(zmq.ROUTER)
         self.socket.setsockopt(zmq.IDENTITY, bytes(identity, 'UTF-8'))
@@ -393,20 +395,25 @@ class ZMQMessenger(Messenger):
         if self.type == self.TYPE_SERVER:
             self.socket.bind(identity)
 
-        # Create and start the receiver and sender threads now.
-        receiver_thread = threading.Thread(target=self.receiver,
-                                           name='receiver')
-        sender_thread = threading.Thread(target=self.sender,
-                                         name='sender')
-        receiver_thread.start()
-        sender_thread.start()
-
         return
 
     def connect(self, address):
-        self.socket.connect('tcp://%s:%d' % address)
+        '''Connect to address and PING NUM_TRIES times till PONG received.
 
-        return
+        Raises ConnectionError if failed to connect after NUM_TRIES tries. None
+        otherwise.
+        '''
+        self.socket.connect('tcp://%s:%d' % address)
+        for _ in range(self.NUM_TRIES):
+            self.ping(address)
+            try:
+                msg_address, msg = next(self.receive(block=False, timeout=0.5))
+                if msg_address == address and msg == 'PONG':
+                    return
+            except:
+                pass
+        else:
+            raise ConnectionError("Failed to connect.")
 
     def ping(self, address):
         self.send(json.dumps('PING'), address)
@@ -418,9 +425,45 @@ class ZMQMessenger(Messenger):
 
         return
 
+    def receive(self, deserialize=False, block=True, timeout=0):
+        while True:
+            flags = 0 if block else zmq.NOBLOCK
+            if timeout > 0.0:
+                if self.socket.poll(timeout=timeout*1000) == 0:
+                    raise TimeoutError()
+            address = self.socket.recv_string(flags=flags)
+            assert self.socket.recv() == b""  # Empty delimiter
+            msg = self.socket.recv_json()
+
+            # FIXME(mtahmed): This would probably fail for IPV6.
+            address = address.split(':')[1:]
+            address[0] = address[0][2:]
+            address[1] = int(address[1])
+            address = tuple(address)
+
+            # FIXME(mtahmed): The PING-PONG should be taken care of in Messenger.
+
+            if not deserialize:
+                yield (address, msg)
+                continue
+
+            # FIXME
+            msg_type = msg.msg_type
+            decoded_msg = msg.msg_payload.decode('UTF-8')
+            if msg_type == message.Message.MSG_STATUS:
+                yield (address, int(decoded_msg))
+            elif msg_type == message.Message.MSG_TASKUNIT:
+                yield (address, taskunit.TaskUnit.deserialize(decoded_msg))
+            elif msg_type == message.Message.MSG_TASKUNIT_RESULT:
+                yield (address, taskunit.TaskUnit.deserialize(decoded_msg))
+            elif msg_type == message.Message.MSG_JOB:
+                yield (address, job.Job.deserialize(decoded_msg))
+
     def send(self, msg, address):
-        self.outbound_queue.append((address, msg))
-        self.outbound_queue_sem.release()
+        address = 'tcp://%s:%d' % address
+        self.socket.send_string(address, zmq.SNDMORE)
+        self.socket.send_string("", zmq.SNDMORE)
+        self.socket.send_string(msg)
 
         return
 
@@ -452,36 +495,6 @@ class ZMQMessenger(Messenger):
 
         return
 
-    def sender(self):
-        '''Send messages out through the socket. Forever.
-        '''
-        while True:
-            self.outbound_queue_sem.acquire()
-            address, msg = self.outbound_queue.popleft()
-
-            address = 'tcp://%s:%d' % address
-
-            self.socket.send_string(address, zmq.SNDMORE)
-            self.socket.send_string("", zmq.SNDMORE)
-            self.socket.send_string(msg)
-
-    def receiver(self):
-        '''Receive messages on the socket. Forever.
-        '''
-        while True:
-            address = self.socket.recv_string()
-            assert self.socket.recv() == b""  # Empty delimiter
-            msg = self.socket.recv_json()
-
-            # FIXME(mtahmed): This would probably fail for IPV6.
-            address = address.split(':')[1:]
-            address[0] = address[0][2:]
-            address[1] = int(address[1])
-            address = tuple(address)
-
-            self.inbound_queue.append((address, msg))
-            self.inbound_queue_sem.release()
-
     @staticmethod
     def get_public_ip():
         '''Get the ip address of the external interface.
@@ -489,7 +502,6 @@ class ZMQMessenger(Messenger):
         This tries to connect to some public service to try to see what
         interface the socket binds to and uses that interface's address.
         '''
-        import socket
         s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         google_addr = socket.gethostbyname('www.google.com')
         s.connect((google_addr, 80))
