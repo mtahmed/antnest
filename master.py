@@ -83,8 +83,14 @@ class Master(node.LocalNode):
         for address, msg in self.messenger.receive(deserialize=False):
 
             if msg == 'PING':
-                print("MASTER: PING from %s:%d" % address)
                 self.messenger.pong(address)
+                # Ping from port 0 is most probably create_job.py message.
+                # Don't add it to our slaves list in that case.
+                # FIXME: In the future, find a better, more reliable way of
+                # determining this.
+                if address[1] == 0:
+                    continue
+                print("MASTER: PING from %s:%d" % address)
                 self.slave_nodes.append(node.RemoteNode(None, address))
                 self.scheduler.add_machine()
                 self.messenger.register_destination('slave1', address)

@@ -407,7 +407,7 @@ class ZMQMessenger(Messenger):
         for _ in range(self.NUM_TRIES):
             self.ping(address)
             try:
-                msg_address, msg = next(self.receive(block=False, timeout=0.5))
+                msg_address, msg = next(self.receive(block=False, timeout=0.2))
                 if msg_address == address and msg == 'PONG':
                     return
             except:
