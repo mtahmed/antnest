@@ -3,5 +3,8 @@ __pycache__
 *.pyc
 *.pyo
 .*.sw?
+*.ropeproject
+config/*
+log/*
 cache_store/*.py
 cache_store/__pycache__
