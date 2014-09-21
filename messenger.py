@@ -389,11 +389,12 @@ class ZMQMessenger(Messenger):
             public_ip = self.get_public_ip()
 
         identity = 'tcp://%s:%d' % (public_ip, self.port)
+        bind_addr = 'tcp://*:%d' % self.port
         self.socket = self.context.socket(zmq.ROUTER)
         self.socket.setsockopt(zmq.IDENTITY, bytes(identity, 'UTF-8'))
 
         if self.type == self.TYPE_SERVER:
-            self.socket.bind(identity)
+            self.socket.bind(bind_addr)
 
         return
 
