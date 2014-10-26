@@ -116,9 +116,12 @@ the repository to run the tests. TODO: Test coverage
 - muhammad.tauqir.ahmad@gmail.com
 - [csclub.uwaterloo.ca/~mtahmed](http://csclub.uwaterloo.ca/~mtahmed)
 
-## TODO
+# LICENSE
 
-- Add license info.
+[WTFPL](http://www.wtfpl.net/) License
+
+But please do let me know and acknowledge me if you do use it so I can feel good
+about myself.
 
 
 [![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/mtahmed/antnest/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
