@@ -122,6 +122,3 @@ the repository to run the tests. TODO: Test coverage
 
 But please do let me know and acknowledge me if you do use it so I can feel good
 about myself.
-
-
-[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/mtahmed/antnest/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
